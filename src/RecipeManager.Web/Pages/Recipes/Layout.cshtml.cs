@@ -161,7 +161,8 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
             settings.FullWidthSections,
             !string.IsNullOrWhiteSpace(Recipe.StoredImageKey)
                 ? Url.Page("/Recipes/Image", values: new { id = Recipe.Id })
-                : Recipe.ImageUrl);
+                : Recipe.ImageUrl,
+            IsLayoutEditor: true);
     }
 
     private IActionResult InvalidLayout()

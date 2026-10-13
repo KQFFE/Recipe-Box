@@ -46,33 +46,51 @@ body {
   grid-column: 1 / -1;
 }
 
-.layout-editor {
-  display: grid;
-  grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.5fr);
-  gap: 2rem;
-  margin-block: 2rem;
-}
-
-.layout-editor-controls {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.layout-editor-preview-container {
-  min-width: 0;
+.layout-editor-page {
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  padding-inline: clamp(0.5rem, 2vw, 2rem);
 }
 
 .layout-editor-preview {
-  padding: 1.25rem;
+  width: 100%;
+}
+
+.layout-editor-preview [data-layout-section] {
+  min-width: 0;
+  cursor: grab;
+}
+
+.layout-section-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
   border: 1px solid var(--bs-border-color);
   border-radius: var(--bs-border-radius);
   background: var(--bs-tertiary-bg);
 }
 
-.layout-editor-preview [data-layout-section] {
+.layout-section-toolbar .btn {
+  min-height: 2.75rem;
+}
+
+.layout-section-drag-handle {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
   cursor: grab;
+  touch-action: none;
+}
+
+.layout-section-drag-handle:active {
+  cursor: grabbing;
 }
 
 .layout-editor-preview [data-layout-section]:active {
@@ -97,21 +115,31 @@ body {
     grid-column: 1;
   }
 
-  .layout-editor {
-    grid-template-columns: minmax(0, 1fr);
+  .layout-editor-page {
+    padding-inline: 0.5rem;
   }
 
-  .layout-editor-preview {
-    padding: 1rem;
+  .recipe-layout-grid {
+    gap: 0.75rem;
   }
-}
 
-.layout-section-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  .layout-section-toolbar {
+    gap: 0.375rem;
+    padding: 0.375rem;
+  }
+
+  .layout-section-toolbar .btn,
+  .layout-section-drag-handle {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .layout-section-toolbar .form-check {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 0.5rem;
+  }
 }
 
 .recipe-form {

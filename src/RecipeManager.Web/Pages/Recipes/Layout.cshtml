@@ -4,63 +4,25 @@
     ViewData["Title"] = "Customize recipe layout";
 }
 
-<div class="recipe-sheet">
+<div class="layout-editor-page">
     <a asp-page="Details" asp-route-id="@Model.Recipe.Id" class="text-decoration-none">&larr; Back to recipe</a>
     <h1 class="mt-2">Customize layout</h1>
     <p class="text-secondary">
-        Drag sections in the preview to change their order, or use the move buttons. Choose full width to span both columns.
-        Your changes apply only to this recipe in your account and are not saved until you select Save layout.
+        Drag sections to arrange them, or use each section's move buttons. Drag by touch or tap the move buttons on mobile.
+        Choose full width to span both columns. Changes are not saved until you select Save layout.
     </p>
 
     <form method="post" id="layout-editor-form">
         <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-        <div class="layout-editor">
-            <fieldset class="layout-editor-controls">
-                <legend class="h2">Sections</legend>
-                <p class="text-secondary">Use the move buttons to reorder sections without dragging.</p>
-                <ol id="layout-section-order" class="list-group" aria-label="Recipe section order">
-                    @for (var index = 0; index < Model.SectionOrder.Count; index++)
-                    {
-                        var key = Model.SectionOrder[index];
-                        var layoutSection = Model.AvailableSections.Single(item => item.Key == key);
-                        <li class="list-group-item layout-section-item" data-layout-editor-item="@key">
-                            <input type="hidden" name="SectionOrder" value="@key" />
-                            <span class="fw-semibold">@layoutSection.Label</span>
-                            <div class="d-flex flex-wrap gap-2">
-                                <label class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="FullWidthSections" value="@key"
-                                           data-layout-width="@key"
-                                           checked="@Model.FullWidthSections?.Contains(key)" />
-                                    <span class="form-check-label">Full width</span>
-                                </label>
-                                <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                        asp-page-handler="MoveUp" asp-route-index="@index"
-                                        disabled="@(index == 0)" data-layout-move="up"
-                                        aria-label="Move @layoutSection.Label up">
-                                    Move up
-                                </button>
-                                <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                        asp-page-handler="MoveDown" asp-route-index="@index"
-                                        disabled="@(index == Model.SectionOrder.Count - 1)" data-layout-move="down"
-                                        aria-label="Move @layoutSection.Label down">
-                                    Move down
-                                </button>
-                            </div>
-                        </li>
-                    }
-                </ol>
-            </fieldset>
-            <section class="layout-editor-preview-container" aria-labelledby="layout-preview-heading">
-                <h2 id="layout-preview-heading">Current layout preview</h2>
-                <p id="layout-drag-instructions" class="text-secondary">
-                    Drag a section and drop it before or after another section. On narrow screens, sections stack in this order.
-                </p>
-                <div class="layout-editor-preview" aria-describedby="layout-drag-instructions">
-                    <partial name="_RecipeContent" model="Model.Preview" />
-                </div>
-            </section>
-        </div>
+        <section aria-labelledby="layout-preview-heading">
+            <h2 id="layout-preview-heading" class="visually-hidden">Current layout preview</h2>
+            <p id="layout-drag-instructions" class="text-secondary">
+                Drag a section to place it before or after another. Sections stack in this order on narrow screens.
+            </p>
+            <div class="layout-editor-preview" aria-describedby="layout-drag-instructions">
+                <partial name="_RecipeContent" model="Model.Preview" />
+            </div>
+        </section>
         <button type="submit" class="btn btn-primary" asp-page-handler="Save">Save layout</button>
         <a class="btn btn-outline-secondary" asp-page="Details" asp-route-id="@Model.Recipe.Id">Cancel</a>
     </form>

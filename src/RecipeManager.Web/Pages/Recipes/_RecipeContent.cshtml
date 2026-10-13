@@ -1,13 +1,42 @@
 @model RecipeManager.Web.Models.RecipePresentation
 
 <div class="recipe-layout-grid">
-    @foreach (var layoutSection in Model.LayoutSections)
+    @for (var index = 0; index < Model.LayoutSections.Count; index++)
     {
+        var layoutSection = Model.LayoutSections[index];
         var fullWidthClass = Model.FullWidthSections.Contains(layoutSection.Key) ? "recipe-layout-panel-full" : string.Empty;
         <section id="recipe-section-@layoutSection.Key"
                  data-layout-section="@layoutSection.Key"
                  class="recipe-layout-panel @fullWidthClass"
                  aria-labelledby="heading-@layoutSection.Key">
+            @if (Model.IsLayoutEditor)
+            {
+                <div class="layout-section-toolbar" role="group" aria-label="@layoutSection.Label layout controls">
+                    <input type="hidden" name="SectionOrder" value="@layoutSection.Key" />
+                    <span class="layout-section-drag-handle" data-layout-drag-handle="@layoutSection.Key"
+                          aria-hidden="true" title="Drag to reorder">Drag</span>
+                    <label class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox"
+                               name="FullWidthSections" value="@layoutSection.Key"
+                               data-layout-width="@layoutSection.Key"
+                               aria-label="Full width for @layoutSection.Label"
+                               checked="@Model.FullWidthSections.Contains(layoutSection.Key)" />
+                        <span class="form-check-label">Full width</span>
+                    </label>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"
+                            asp-page-handler="MoveUp" asp-route-index="@index"
+                            disabled="@(index == 0)" data-layout-move="up"
+                            aria-label="Move @layoutSection.Label up">
+                        Move up
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"
+                            asp-page-handler="MoveDown" asp-route-index="@index"
+                            disabled="@(index == Model.LayoutSections.Count - 1)" data-layout-move="down"
+                            aria-label="Move @layoutSection.Label down">
+                        Move down
+                    </button>
+                </div>
+            }
             @switch (layoutSection.Key)
             {
                 case RecipeLayoutDefinition.Description:

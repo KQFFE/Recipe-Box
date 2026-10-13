@@ -30,7 +30,8 @@ public sealed record RecipePresentation(
     IReadOnlyList<string> Instructions,
     IReadOnlyList<RecipeLayoutSection> LayoutSections,
     IReadOnlySet<string> FullWidthSections,
-    string? ImageSource);
+    string? ImageSource,
+    bool IsLayoutEditor = false);
 
 public static class RecipeLayoutDefinition
 {
