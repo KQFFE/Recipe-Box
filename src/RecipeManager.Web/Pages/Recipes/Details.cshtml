@@ -1,0 +1,48 @@
+@page "{id:int}"
+@model RecipeManager.Web.Pages.Recipes.DetailsModel
+@{
+    ViewData["Title"] = Model.Recipe.Title;
+}
+
+<article class="recipe-sheet">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <a asp-page="Index" class="text-decoration-none">&larr; My recipes</a>
+            <h1 class="mt-2">@Model.Recipe.Title</h1>
+            @if (!string.IsNullOrWhiteSpace(Model.Recipe.Description))
+            {
+                <p class="lead text-secondary">@Model.Recipe.Description</p>
+            }
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" asp-page="Edit" asp-route-id="@Model.Recipe.Id">Edit</a>
+            <a class="btn btn-outline-danger" asp-page="Delete" asp-route-id="@Model.Recipe.Id">Delete</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Recipe.ImageUrl))
+    {
+        <img src="@Model.Recipe.ImageUrl" class="img-fluid rounded-3 mb-4 recipe-detail-image" alt="@Model.Recipe.Title" />
+    }
+
+    <div class="row g-4">
+        <section class="col-12 col-lg-4" aria-labelledby="ingredients-heading">
+            <h2 id="ingredients-heading" class="h4">Ingredients</h2>
+            <ul class="list-group list-group-flush">
+                @foreach (var ingredient in Model.Ingredients)
+                {
+                    <li class="list-group-item px-0">@ingredient</li>
+                }
+            </ul>
+        </section>
+        <section class="col-12 col-lg-8" aria-labelledby="instructions-heading">
+            <h2 id="instructions-heading" class="h4">How to prepare</h2>
+            <ol class="list-group list-group-numbered">
+                @foreach (var step in Model.Instructions)
+                {
+                    <li class="list-group-item">@step</li>
+                }
+            </ol>
+        </section>
+    </div>
+</article>

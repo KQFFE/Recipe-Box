@@ -1,0 +1,32 @@
+@model RecipeManager.Web.Pages.Recipes.RecipeFormModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+<div class="mb-3">
+    <label asp-for="Title" class="form-label"></label>
+    <input asp-for="Title" class="form-control" autocomplete="off" />
+    <span asp-validation-for="Title" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Description" class="form-label"></label>
+    <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+    <span asp-validation-for="Description" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="ImageUrl" class="form-label"></label>
+    <input asp-for="ImageUrl" class="form-control" inputmode="url" />
+    <span asp-validation-for="ImageUrl" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Ingredients" class="form-label"></label>
+    <textarea asp-for="Ingredients" class="form-control" rows="6"
+              placeholder="One ingredient per line"></textarea>
+    <div class="form-text">Enter one ingredient per line, including quantity when known.</div>
+    <span asp-validation-for="Ingredients" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Instructions" class="form-label"></label>
+    <textarea asp-for="Instructions" class="form-control" rows="8"
+              placeholder="One preparation step per line"></textarea>
+    <div class="form-text">Enter one preparation step per line, in order.</div>
+    <span asp-validation-for="Instructions" class="text-danger"></span>
+</div>

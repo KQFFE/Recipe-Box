@@ -1,0 +1,47 @@
+@page
+@model RecipeManager.Web.Pages.Recipes.IndexModel
+@{
+    ViewData["Title"] = "My recipes";
+}
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-secondary fw-semibold small mb-1">Your collection</p>
+        <h1 class="mb-0">My recipes</h1>
+    </div>
+    <a class="btn btn-primary" asp-page="Create">Add a recipe</a>
+</div>
+
+@if (Model.Recipes.Count == 0)
+{
+    <section class="border rounded-3 p-5 text-center bg-light">
+        <h2 class="h4">Your recipe box is empty</h2>
+        <p class="text-secondary mb-4">Add a recipe to start building your personal collection.</p>
+        <a class="btn btn-primary" asp-page="Create">Add your first recipe</a>
+    </section>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var recipe in Model.Recipes)
+        {
+            <div class="col-12 col-md-6 col-xl-4">
+                <article class="card h-100 shadow-sm">
+                    @if (!string.IsNullOrWhiteSpace(recipe.ImageUrl))
+                    {
+                        <img src="@recipe.ImageUrl" class="card-img-top recipe-card-image" alt="" />
+                    }
+                    <div class="card-body d-flex flex-column">
+                        <h2 class="h5 card-title">@recipe.Title</h2>
+                        @if (!string.IsNullOrWhiteSpace(recipe.Description))
+                        {
+                            <p class="card-text text-secondary">@recipe.Description</p>
+                        }
+                        <a class="btn btn-outline-primary mt-auto align-self-start"
+                           asp-page="Details" asp-route-id="@recipe.Id">View recipe</a>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,38 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Recipe box";
+}
+
+<section class="py-5 py-lg-6">
+    <p class="text-uppercase text-secondary fw-semibold small">Your recipes, your way</p>
+    <h1 class="display-4 fw-semibold">A home for the dishes<br />you love to make.</h1>
+    <p class="lead text-secondary mt-3 mb-4">
+        Keep ingredients and preparation steps together in your own private recipe box.
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary btn-lg" asp-page="/Recipes/Index">Open my recipes</a>
+        <a class="btn btn-outline-secondary btn-lg" asp-area="Identity" asp-page="/Account/Register">Create an account</a>
+    </div>
+</section>
+
+<div class="row g-3 mb-5">
+    <div class="col-12 col-md-4">
+        <div class="border rounded-3 p-3 h-100">
+            <h2 class="h5">Keep it personal</h2>
+            <p class="text-secondary mb-0">Your recipes are kept separate from other accounts.</p>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="border rounded-3 p-3 h-100">
+            <h2 class="h5">Easy to follow</h2>
+            <p class="text-secondary mb-0">Ingredients and numbered preparation steps stay distinct.</p>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="border rounded-3 p-3 h-100">
+            <h2 class="h5">Ready to grow</h2>
+            <p class="text-secondary mb-0">Photo and website importing can build on this foundation.</p>
+        </div>
+    </div>
+</div>

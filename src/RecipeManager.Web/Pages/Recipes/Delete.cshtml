@@ -1,0 +1,13 @@
+@page "{id:int}"
+@model RecipeManager.Web.Pages.Recipes.DeleteModel
+@{
+    ViewData["Title"] = "Delete recipe";
+}
+
+<h1>Delete recipe</h1>
+<p>Are you sure you want to delete <strong>@Model.Recipe.Title</strong>?</p>
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Delete recipe</button>
+    <a class="btn btn-outline-secondary" asp-page="Details" asp-route-id="@Model.Id">Cancel</a>
+</form>
