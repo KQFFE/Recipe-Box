@@ -58,8 +58,11 @@ textarea {
 }
 
 .btn {
+  display: inline-flex;
   min-height: 44px;
   align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .recipe-card-image {

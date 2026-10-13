@@ -122,6 +122,17 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         Assert.All(desktopCardHeights, height => Assert.Equal(desktopCardHeight, height, 1));
         await page.SetViewportSizeAsync(375, 667);
         Assert.Null(await layoutHelp.GetAttributeAsync("open"));
+        var mobileButtonTextIsCentered = await page.Locator(".btn:visible")
+            .EvaluateAllAsync<bool[]>(
+                """
+                buttons => buttons.map(button => {
+                    const style = getComputedStyle(button);
+                    return style.textAlign === "center"
+                        && style.alignItems === "center"
+                        && style.justifyContent === "center";
+                })
+                """);
+        Assert.All(mobileButtonTextIsCentered, Assert.True);
         var layoutHelpSummary = layoutHelp.Locator("summary");
         await layoutHelpSummary.FocusAsync();
         await layoutHelpSummary.PressAsync("Enter");
