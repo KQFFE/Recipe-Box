@@ -112,7 +112,41 @@ public static partial class RecipeStructuredDataParser
             GetStringArray(recipe, "recipeIngredient"),
             string.Join(Environment.NewLine, instructions),
             GetString(recipe, "description"),
-            imageUrl);
+            imageUrl,
+            RecipeLanguage.ResolveCode(
+                GetLanguageCode(recipe),
+                string.Join(
+                    Environment.NewLine,
+                    GetString(recipe, "name"),
+                    GetString(recipe, "description"),
+                    GetStringArray(recipe, "recipeIngredient"),
+                    string.Join(Environment.NewLine, instructions))));
+    }
+
+    private static string? GetLanguageCode(JsonElement recipe)
+    {
+        if (!recipe.TryGetProperty("inLanguage", out var language))
+        {
+            return null;
+        }
+
+        if (language.ValueKind == JsonValueKind.String)
+        {
+            return language.GetString();
+        }
+
+        if (language.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var value in language.EnumerateArray())
+            {
+                if (value.ValueKind == JsonValueKind.String)
+                {
+                    return value.GetString();
+                }
+            }
+        }
+
+        return null;
     }
 
     private static void AppendInstructions(JsonElement element, ICollection<string> instructions)

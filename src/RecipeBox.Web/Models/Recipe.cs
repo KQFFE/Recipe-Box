@@ -29,6 +29,10 @@ public sealed class Recipe
     public string Instructions { get; set; } = string.Empty;
 
     [Required]
+    [StringLength(16)]
+    public string LanguageCode { get; set; } = RecipeLanguage.EnglishCode;
+
+    [Required]
     public string OwnerId { get; set; } = string.Empty;
 
     public DateTime CreatedAtUtc { get; set; }

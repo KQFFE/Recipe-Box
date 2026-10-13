@@ -42,6 +42,14 @@ public sealed class ImportModel(
             Input = new RecipeFormModel
             {
                 Title = draft.Title,
+                LanguageCode = RecipeLanguage.ResolveCode(
+                    draft.LanguageCode,
+                    string.Join(
+                        Environment.NewLine,
+                        draft.Title,
+                        draft.Description,
+                        draft.Ingredients,
+                        draft.Instructions)),
                 Description = draft.Description,
                 ImageUrl = draft.ImageUrl,
                 Ingredients = draft.Ingredients,
@@ -86,6 +94,7 @@ public sealed class ImportModel(
             ImageUrl = Input.ImageUrl?.Trim(),
             Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty),
             Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty),
+            LanguageCode = RecipeLanguage.NormalizeCode(Input.LanguageCode),
             OwnerId = CurrentUserId,
             CreatedAtUtc = now,
             UpdatedAtUtc = now

@@ -55,6 +55,7 @@ public sealed class CreateModel(
             StoredImageContentType = storedImage?.ContentType,
             Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty),
             Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty),
+            LanguageCode = RecipeLanguage.NormalizeCode(Input.LanguageCode),
             OwnerId = CurrentUserId,
             CreatedAtUtc = now,
             UpdatedAtUtc = now

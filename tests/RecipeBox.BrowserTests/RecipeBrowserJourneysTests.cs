@@ -24,6 +24,11 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         Assert.Equal("#main-content", await page.EvaluateAsync<string>("() => location.hash"));
 
         await page.GotoAsync($"{application.BaseUrl}/Recipes/Create");
+        var recipeLanguage = page.GetByLabel("Recipe language");
+        await recipeLanguage.SelectOptionAsync("sv");
+        await Assertions.Expect(page.GetByLabel("Ingredienser")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByLabel("Gör så här")).ToBeVisibleAsync();
+        await recipeLanguage.SelectOptionAsync("en");
         await page.GetByLabel("Recipe name").FillAsync("Browser-tested tomato soup");
         await page.GetByLabel("Description").FillAsync("Created in a real browser.");
         await page.GetByLabel("Upload a cover image").SetInputFilesAsync(new FilePayload
@@ -82,7 +87,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             .ToBeVisibleAsync();
         await layoutHelp.GetByText("How to customize").ClickAsync();
         await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.").First).ToBeVisibleAsync();
-        foreach (var sectionName in new[] { "Description", "Image", "Ingredients", "How to prepare" })
+        foreach (var sectionName in new[] { "Description", "Image", "Ingredients", "Instructions" })
         {
             await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Region, new() { Name = sectionName }))
                 .ToBeVisibleAsync();
@@ -90,7 +95,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         var actionSpacing = await page.Locator(".layout-editor-actions")
             .EvaluateAsync<double>("element => parseFloat(getComputedStyle(element).marginTop)");
         Assert.True(actionSpacing >= 32, "Layout action buttons should be separated from the preview.");
-        await page.GetByRole(AriaRole.Button, new() { Name = "Move How to prepare up" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Move Instructions up" }).ClickAsync();
         var accessibleMoveOrder = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
         Assert.Equal(new[] { "description", "image", "instructions", "ingredients" }, accessibleMoveOrder);
@@ -105,7 +110,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         Assert.Equal(new[] { "image", "description", "instructions", "ingredients" }, previewOrder);
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Move Description up" }))
             .ToBeEnabledAsync();
-        await layoutPreview.GetByLabel("Full width for How to prepare").CheckAsync();
+        await layoutPreview.GetByLabel("Full width for Instructions").CheckAsync();
         var previewInstructionClasses = await layoutPreview
             .Locator("#recipe-section-instructions")
             .GetAttributeAsync("class");

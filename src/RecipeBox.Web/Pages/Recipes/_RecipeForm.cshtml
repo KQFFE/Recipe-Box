@@ -7,6 +7,22 @@
     <span asp-validation-for="Title" class="text-danger"></span>
 </div>
 <div class="mb-3">
+    <label asp-for="LanguageCode" class="form-label"></label>
+    <select asp-for="LanguageCode" class="form-select" data-recipe-language>
+        @foreach (var language in Model.LanguageOptions)
+        {
+            <option value="@language.Code"
+                    data-ingredients-label="@language.IngredientsLabel"
+                    data-instructions-label="@language.InstructionsLabel"
+                    data-ingredients-hint="@language.IngredientsHint"
+                    data-instructions-hint="@language.InstructionsHint">
+                @language.Name
+            </option>
+        }
+    </select>
+    <span asp-validation-for="LanguageCode" class="text-danger"></span>
+</div>
+<div class="mb-3">
     <label asp-for="Description" class="form-label"></label>
     <textarea asp-for="Description" class="form-control" rows="2"></textarea>
     <span asp-validation-for="Description" class="text-danger"></span>
@@ -17,16 +33,16 @@
     <span asp-validation-for="ImageUrl" class="text-danger"></span>
 </div>
 <div class="mb-3">
-    <label asp-for="Ingredients" class="form-label"></label>
+    <label asp-for="Ingredients" class="form-label">@Model.IngredientsLabel</label>
     <textarea asp-for="Ingredients" class="form-control" rows="6"
-              placeholder="One ingredient per line"></textarea>
-    <div class="form-text">Enter one ingredient per line, including quantity when known.</div>
+              placeholder="@Model.IngredientsHint"></textarea>
+    <div class="form-text" data-recipe-language-hint="ingredients">@Model.IngredientsHint</div>
     <span asp-validation-for="Ingredients" class="text-danger"></span>
 </div>
 <div class="mb-3">
-    <label asp-for="Instructions" class="form-label"></label>
+    <label asp-for="Instructions" class="form-label">@Model.InstructionsLabel</label>
     <textarea asp-for="Instructions" class="form-control" rows="8"
-              placeholder="One preparation step per line"></textarea>
-    <div class="form-text">Enter one preparation step per line, in order.</div>
+              placeholder="@Model.InstructionsHint"></textarea>
+    <div class="form-text" data-recipe-language-hint="instructions">@Model.InstructionsHint</div>
     <span asp-validation-for="Instructions" class="text-danger"></span>
 </div>

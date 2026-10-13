@@ -3,6 +3,28 @@
 
 const layoutPreview = document.querySelector(".layout-editor-preview");
 
+const recipeLanguageSelect = document.querySelector("[data-recipe-language]");
+if (recipeLanguageSelect) {
+  const updateRecipeLanguageLabels = () => {
+    const selectedLanguage = recipeLanguageSelect.selectedOptions[0];
+    const fields = [
+      ["ingredients", "Ingredients"],
+      ["instructions", "Instructions"]
+    ];
+
+    fields.forEach(([field, fieldName]) => {
+      const label = document.querySelector(`label[for="Input_${fieldName}"]`);
+      const input = document.getElementById(`Input_${fieldName}`);
+      const hint = document.querySelector(`[data-recipe-language-hint="${field}"]`);
+      label.textContent = selectedLanguage.dataset[`${field}Label`];
+      input.placeholder = selectedLanguage.dataset[`${field}Hint`];
+      hint.textContent = selectedLanguage.dataset[`${field}Hint`];
+    });
+  };
+
+  recipeLanguageSelect.addEventListener("change", updateRecipeLanguageLabels);
+}
+
 if (layoutPreview) {
   let draggedSectionKey;
   let touchDraggedSectionKey;

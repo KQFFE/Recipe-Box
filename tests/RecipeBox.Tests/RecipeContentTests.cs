@@ -59,6 +59,37 @@ public sealed class RecipeContentTests
         Assert.Equal("Äppelkaka", draft.Title);
         Assert.Equal($"3 st ägg{Environment.NewLine}Laktosfritt", draft.Ingredients);
         Assert.Equal("Blanda ingredienserna.", draft.Instructions);
+        Assert.Equal("sv", draft.LanguageCode);
+    }
+
+    [Theory]
+    [InlineData("Tomato soup\nIngredients:\n4 tomatoes\nInstructions:\nMix well.", "en")]
+    [InlineData("Äppelkaka\nIngredienser:\n2 ägg\nGör så här:\nBlanda väl.", "sv")]
+    public void RecipeLanguage_DetectsSupportedRecipeLanguage(string text, string expectedCode)
+    {
+        Assert.Equal(expectedCode, RecipeLanguage.DetectCode(text));
+    }
+
+    [Theory]
+    [InlineData("sv-SE", "sv")]
+    [InlineData("en_US", "en")]
+    [InlineData("fr-FR", "en")]
+    public void RecipeLanguage_NormalizesLanguageTagsToSupportedCodes(string languageTag, string expectedCode)
+    {
+        Assert.Equal(expectedCode, RecipeLanguage.NormalizeCode(languageTag));
+    }
+
+    [Fact]
+    public void RecipeLayoutDefinition_UsesTheRecipeLanguageForSectionHeadings()
+    {
+        var layout = RecipeLayoutDefinition.AvailableSections(new Recipe
+        {
+            LanguageCode = "sv"
+        });
+
+        Assert.Equal(
+            new[] { "Ingredienser", "Gör så här" },
+            layout.Select(section => section.Label));
     }
 
     [Fact]

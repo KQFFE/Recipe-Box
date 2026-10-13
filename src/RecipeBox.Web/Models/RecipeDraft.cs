@@ -5,4 +5,5 @@ public sealed record RecipeDraft(
     string Ingredients,
     string Instructions,
     string? Description = null,
-    string? ImageUrl = null);
+    string? ImageUrl = null,
+    string? LanguageCode = null);

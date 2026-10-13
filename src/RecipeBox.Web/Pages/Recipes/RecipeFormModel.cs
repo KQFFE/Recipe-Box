@@ -11,6 +11,21 @@ public sealed class RecipeFormModel : IValidatableObject
     [Display(Name = "Recipe name")]
     public string Title { get; set; } = string.Empty;
 
+    [Required]
+    [StringLength(16)]
+    [Display(Name = "Recipe language")]
+    public string LanguageCode { get; set; } = RecipeLanguage.EnglishCode;
+
+    public IReadOnlyList<RecipeLanguageOption> LanguageOptions => RecipeLanguage.Options;
+
+    public string IngredientsLabel => RecipeLanguage.IngredientsLabel(LanguageCode);
+
+    public string InstructionsLabel => RecipeLanguage.InstructionsLabel(LanguageCode);
+
+    public string IngredientsHint => RecipeLanguage.IngredientsHint(LanguageCode);
+
+    public string InstructionsHint => RecipeLanguage.InstructionsHint(LanguageCode);
+
     [StringLength(2000)]
     public string? Description { get; set; }
 

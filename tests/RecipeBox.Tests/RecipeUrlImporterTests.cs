@@ -19,6 +19,7 @@ public sealed class RecipeUrlImporterTests
                 {
                   "@type": ["Thing", "https://schema.org/Recipe"],
                   "name": "Tomato soup",
+                  "inLanguage": "sv-SE",
                   "description": "A simple soup.",
                   "image": { "url": "/images/tomato-soup.jpg" },
                   "recipeIngredient": ["4 tomatoes", "1 onion"],
@@ -47,6 +48,7 @@ public sealed class RecipeUrlImporterTests
         Assert.Equal($"4 tomatoes{Environment.NewLine}1 onion", draft.Ingredients);
         Assert.Equal($"Roast the vegetables.{Environment.NewLine}Blend until smooth.", draft.Instructions);
         Assert.Equal("https://recipes.example.test/images/tomato-soup.jpg", draft.ImageUrl);
+        Assert.Equal("sv", draft.LanguageCode);
     }
 
     [Fact]
@@ -79,6 +81,25 @@ public sealed class RecipeUrlImporterTests
             new Uri("https://recipes.example.test"));
 
         Assert.Null(draft);
+    }
+
+    [Fact]
+    public void StructuredDataParser_DetectsRecipeLanguageWhenMetadataIsMissing()
+    {
+        const string html = """
+            <script type="application/ld+json">
+            {
+              "@type": "Recipe",
+              "name": "Äppelkaka",
+              "recipeIngredient": ["2 ägg"],
+              "recipeInstructions": ["Blanda väl."]
+            }
+            </script>
+            """;
+
+        var draft = RecipeStructuredDataParser.Parse(html, new Uri("https://recipes.example.test/apple-cake"));
+
+        Assert.Equal("sv", draft?.LanguageCode);
     }
 
     [Fact]

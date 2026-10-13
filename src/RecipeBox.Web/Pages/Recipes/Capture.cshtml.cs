@@ -56,6 +56,9 @@ public sealed class CaptureModel(
         Input = new RecipeFormModel
         {
             Title = draft.Title,
+            LanguageCode = RecipeLanguage.ResolveCode(
+                draft.LanguageCode,
+                string.Join(Environment.NewLine, draft.Title, draft.Ingredients, draft.Instructions)),
             Ingredients = draft.Ingredients,
             Instructions = draft.Instructions
         };
@@ -79,6 +82,7 @@ public sealed class CaptureModel(
             ImageUrl = Input.ImageUrl?.Trim(),
             Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty),
             Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty),
+            LanguageCode = RecipeLanguage.NormalizeCode(Input.LanguageCode),
             OwnerId = CurrentUserId,
             CreatedAtUtc = now,
             UpdatedAtUtc = now

@@ -186,6 +186,48 @@ public sealed class RecipePagesEndToEndTests
     }
 
     [Fact]
+    public async Task CapturePage_DetectsSwedishAndPersistsItsSectionHeadings()
+    {
+        using var factory = new RecipeAppFactory();
+        factory.TextExtractor.Text =
+            "Äppelkaka\nIngredienser:\n2 ägg\nGör så här:\nBlanda väl.";
+        using var client = factory.CreateAppClient();
+        var capturePage = await client.GetAsync("/Recipes/Capture");
+        var token = ExtractAntiforgeryToken(await capturePage.Content.ReadAsStringAsync());
+
+        using var upload = CreateImageUpload(token, [0xFF, 0xD8, 0xFF, 0xD9]);
+        var extractResponse = await client.PostAsync("/Recipes/Capture?handler=Extract", upload);
+        var reviewHtml = await extractResponse.Content.ReadAsStringAsync();
+        var decodedReviewHtml = WebUtility.HtmlDecode(reviewHtml);
+
+        Assert.Equal(HttpStatusCode.OK, extractResponse.StatusCode);
+        Assert.Matches("<option[^>]*value=\"sv\"[^>]*selected=\"selected\"", decodedReviewHtml);
+        Assert.Contains(">Ingredienser</label>", decodedReviewHtml, StringComparison.Ordinal);
+        Assert.Contains(">Gör så här</label>", decodedReviewHtml, StringComparison.Ordinal);
+
+        var saveResponse = await client.PostAsync(
+            "/Recipes/Capture?handler=Save",
+            Form(
+                ExtractAntiforgeryToken(reviewHtml),
+                new Dictionary<string, string>
+                {
+                    ["Input.Title"] = "Äppelkaka",
+                    ["Input.LanguageCode"] = "sv",
+                    ["Input.Ingredients"] = "2 ägg",
+                    ["Input.Instructions"] = "Blanda väl."
+                }));
+
+        Assert.Equal(HttpStatusCode.Redirect, saveResponse.StatusCode);
+        var details = WebUtility.HtmlDecode(
+            await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString));
+        Assert.Matches("<h2[^>]*>\\s*Ingredienser\\s*</h2>", details);
+        Assert.Matches("<h2[^>]*>\\s*Gör så här\\s*</h2>", details);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal("sv", (await db.Recipes.SingleAsync()).LanguageCode);
+    }
+
+    [Fact]
     public async Task CapturePage_RejectsInvalidImagesAndDoesNotSaveUnreadableDrafts()
     {
         using var factory = new RecipeAppFactory();
@@ -255,10 +297,57 @@ public sealed class RecipePagesEndToEndTests
             }));
 
         Assert.Equal(HttpStatusCode.Redirect, saveResponse.StatusCode);
-        var details = await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString);
+        var details = WebUtility.HtmlDecode(
+            await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString));
         Assert.Contains("My corrected tomato soup", details);
         Assert.Contains("5 tomatoes", details);
         Assert.Contains("Corrected description.", details);
+    }
+
+    [Fact]
+    public async Task ImportPage_UsesRecipeLanguageMetadataForReviewAndSavedHeadings()
+    {
+        using var factory = new RecipeAppFactory();
+        factory.UrlImporter.Draft = new RecipeDraft(
+            "Äppelkaka",
+            "2 ägg",
+            "Blanda väl.",
+            LanguageCode: "sv-SE");
+        using var client = factory.CreateAppClient();
+        var importPage = await client.GetAsync("/Recipes/Import");
+        var token = ExtractAntiforgeryToken(await importPage.Content.ReadAsStringAsync());
+
+        var importResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string>
+            {
+                ["RecipeUrl"] = "https://recipes.example.test/apple-cake"
+            }));
+        var reviewHtml = await importResponse.Content.ReadAsStringAsync();
+        var decodedReviewHtml = WebUtility.HtmlDecode(reviewHtml);
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        Assert.Matches("<option[^>]*value=\"sv\"[^>]*selected=\"selected\"", decodedReviewHtml);
+        Assert.Contains(">Ingredienser</label>", decodedReviewHtml, StringComparison.Ordinal);
+        Assert.Contains(">Gör så här</label>", decodedReviewHtml, StringComparison.Ordinal);
+
+        var saveResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Save",
+            Form(
+                ExtractAntiforgeryToken(reviewHtml),
+                new Dictionary<string, string>
+                {
+                    ["Input.Title"] = "Äppelkaka",
+                    ["Input.LanguageCode"] = "sv",
+                    ["Input.Ingredients"] = "2 ägg",
+                    ["Input.Instructions"] = "Blanda väl."
+                }));
+
+        Assert.Equal(HttpStatusCode.Redirect, saveResponse.StatusCode);
+        var details = WebUtility.HtmlDecode(
+            await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString));
+        Assert.Matches("<h2[^>]*>\\s*Ingredienser\\s*</h2>", details);
+        Assert.Matches("<h2[^>]*>\\s*Gör så här\\s*</h2>", details);
     }
 
     [Theory]

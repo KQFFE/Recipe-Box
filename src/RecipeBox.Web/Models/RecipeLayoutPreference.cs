@@ -54,8 +54,12 @@ public static class RecipeLayoutDefinition
             sections.Add(new RecipeLayoutSection(Image, "Image"));
         }
 
-        sections.Add(new RecipeLayoutSection(Ingredients, "Ingredients"));
-        sections.Add(new RecipeLayoutSection(Instructions, "How to prepare"));
+        sections.Add(new RecipeLayoutSection(
+            Ingredients,
+            RecipeLanguage.SectionLabel(Ingredients, recipe.LanguageCode)));
+        sections.Add(new RecipeLayoutSection(
+            Instructions,
+            RecipeLanguage.SectionLabel(Instructions, recipe.LanguageCode)));
         return sections;
     }
 

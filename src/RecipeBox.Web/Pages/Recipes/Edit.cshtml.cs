@@ -35,7 +35,8 @@ public sealed class EditModel(
             Description = recipe.Description,
             ImageUrl = recipe.ImageUrl,
             Ingredients = recipe.Ingredients,
-            Instructions = recipe.Instructions
+            Instructions = recipe.Instructions,
+            LanguageCode = recipe.LanguageCode
         };
         SetCurrentImage(recipe);
 
@@ -92,6 +93,7 @@ public sealed class EditModel(
 
         recipe.Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty);
         recipe.Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty);
+        recipe.LanguageCode = RecipeLanguage.NormalizeCode(Input.LanguageCode);
         recipe.UpdatedAtUtc = DateTime.UtcNow;
 
         try

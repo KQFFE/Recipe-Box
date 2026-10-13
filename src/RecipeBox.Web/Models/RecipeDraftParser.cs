@@ -43,7 +43,8 @@ public static class RecipeDraftParser
         return new RecipeDraft(
             title,
             string.Join(Environment.NewLine, ingredients),
-            string.Join(Environment.NewLine, instructions));
+            string.Join(Environment.NewLine, instructions),
+            LanguageCode: RecipeLanguage.DetectCode(recognizedText));
     }
 
     private static bool TryGetSection(string line, out RecipeSection section)
