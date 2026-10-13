@@ -23,7 +23,9 @@
                 <partial name="_RecipeContent" model="Model.Preview" />
             </div>
         </section>
-        <button type="submit" class="btn btn-primary" asp-page-handler="Save">Save layout</button>
-        <a class="btn btn-outline-secondary" asp-page="Details" asp-route-id="@Model.Recipe.Id">Cancel</a>
+        <div class="layout-editor-actions">
+            <button type="submit" class="btn btn-primary" asp-page-handler="Save">Save layout</button>
+            <a class="btn btn-outline-secondary" asp-page="Details" asp-route-id="@Model.Recipe.Id">Cancel</a>
+        </div>
     </form>
 </div>

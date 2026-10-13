@@ -66,7 +66,7 @@ body {
   position: relative;
   min-width: 0;
   align-self: start;
-  padding: clamp(0.35rem, 0.8vw, 0.75rem);
+  padding: clamp(0.42rem, 0.96vw, 0.9rem);
   border: 1px solid var(--bs-border-color);
   border-radius: var(--bs-border-radius);
   background: var(--bs-body-bg);
@@ -78,7 +78,7 @@ body {
 }
 
 .layout-section-overview {
-  font-size: clamp(0.7rem, 0.8vw, 0.875rem);
+  font-size: clamp(0.84rem, 0.96vw, 1.05rem);
   line-height: 1.25;
 }
 
@@ -98,7 +98,7 @@ body {
 .layout-section-thumbnail {
   display: block;
   width: 100%;
-  height: clamp(2.5rem, 6vh, 4rem);
+  height: clamp(3rem, 7.2vh, 4.8rem);
   margin-bottom: 0.25rem;
   border-radius: 0.25rem;
   object-fit: cover;
@@ -171,6 +171,13 @@ body {
   opacity: 0.4;
 }
 
+.layout-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
 @media (max-width: 767.98px) {
   .recipe-layout-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -182,6 +189,10 @@ body {
 
   .layout-editor-page {
     padding-inline: 0.5rem;
+  }
+
+  #layout-drag-instructions {
+    display: none;
   }
 
   .recipe-layout-grid {
@@ -197,7 +208,7 @@ body {
   }
 
   .layout-editor-preview [data-layout-section] {
-    padding: 0.375rem;
+    padding: 0.45rem;
   }
 
   .layout-section-toolbar {
@@ -213,7 +224,7 @@ body {
     width: 100%;
     justify-content: center;
     min-width: 0;
-    min-height: 2.25rem;
+    min-height: 2.7rem;
     padding-inline: 0.25rem;
     font-size: 0.7rem;
   }
@@ -227,7 +238,7 @@ body {
   }
 
   .layout-section-overview .btn {
-    min-height: 2rem;
+    min-height: 2.4rem;
     font-size: 0.75rem;
   }
 }

@@ -32,6 +32,9 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await page.GetByRole(AriaRole.Button, new() { Name = "Save recipe" }).ClickAsync();
 
         await ExpectHeadingAsync(page, "Browser-tested tomato soup");
+        Assert.Contains("Recipe Box", await page.TitleAsync(), StringComparison.Ordinal);
+        await Assertions.Expect(page.Locator("footer")).ToContainTextAsync("Recipe Box");
+        await Assertions.Expect(page.Locator("footer")).Not.ToContainTextAsync("RecipeManager.Web");
         var privateImagePath = await page.Locator("#recipe-section-image img").GetAttributeAsync("src");
         var privateImageContentType = await page.EvaluateAsync<string>(
             "async path => (await (await fetch(path)).blob()).type",
@@ -45,6 +48,9 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await page.GetByRole(AriaRole.Link, new() { Name = "Customize layout" }).ClickAsync();
         var layoutPreview = page.Locator(".layout-editor-preview");
         await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.").First).ToBeVisibleAsync();
+        var actionSpacing = await page.Locator(".layout-editor-actions")
+            .EvaluateAsync<double>("element => parseFloat(getComputedStyle(element).marginTop)");
+        Assert.True(actionSpacing >= 32, "Layout action buttons should be separated from the preview.");
         await page.GetByRole(AriaRole.Button, new() { Name = "Move How to prepare up" }).ClickAsync();
         var accessibleMoveOrder = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
