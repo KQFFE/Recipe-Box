@@ -88,13 +88,23 @@ Run all tests from the repository root:
 dotnet test RecipeManager.slnx
 ```
 
+The solution includes real-browser tests. Install Chromium once after building the browser-test project:
+
+```powershell
+dotnet build tests\RecipeManager.BrowserTests\RecipeManager.BrowserTests.csproj
+powershell -ExecutionPolicy Bypass -File tests\RecipeManager.BrowserTests\bin\Debug\net10.0\playwright.ps1 install chromium
+dotnet test tests\RecipeManager.BrowserTests\RecipeManager.BrowserTests.csproj
+```
+
+Browser tests launch the web app on a temporary local port with a temporary SQLite database and remove that database afterward. They register a fresh account per journey and use deterministic OCR and recipe-import adapters only when the `RecipeBox:BrowserTestMode` setting is enabled in Development. Normal Development and Production runs use local Tesseract and the public-Internet URL importer. Never enable browser-test mode in a deployed application.
+
 Build without running tests:
 
 ```powershell
 dotnet build RecipeManager.slnx
 ```
 
-`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, invalid submissions, photo and URL capture/review/save, authentication, and owner isolation (including cross-account delete attempts). The test authentication handler and fake extractors are test-only; neither is registered by the web app. These are HTTP-level end-to-end tests, not real-browser Playwright tests.
+`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, invalid submissions, photo and URL capture/review/save, authentication, and owner isolation (including cross-account delete attempts). `RecipeManager.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, photo review/save, and URL-import review/save in a real browser.
 
 ## Project structure
 
@@ -116,6 +126,7 @@ src/
 tests/
   RecipeManager.Tests/    Unit tests and HTTP-level application tests
     TestData/              Licensed OCR fixture and expected text
+  RecipeManager.BrowserTests/ Playwright browser journeys against a local app process
 dotnet-tools.json         Pinned local development tools
 ```
 
@@ -138,10 +149,9 @@ Keep recipes scoped to the authenticated Identity user. Page handlers should que
 
 Recipe photos are OCR'd locally into an editable draft; no photo file or unreviewed OCR output is persisted. Website import reads Schema.org Recipe JSON-LD and extracts the page's declared image URL; it does not download or store image files or preserve the source URL as recipe metadata. In both workflows, users review and can correct all extracted recipe fields before saving. The recipe form validates required content and image URL schemes, and tests cover invalid create/edit/import submissions and cross-account read/delete boundaries. Real-browser tests remain future work. The near-term goal is to grow the app in independent, testable vertical slices:
 
-1. Add real-browser tests for the important recipe, photo-capture, and URL-import journeys.
-2. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
-3. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
-4. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
+1. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
+2. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
+3. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
 
 Each increment should include unit tests for its rules, HTTP or integration tests for persistence and account boundaries, and browser-level end-to-end coverage for its main user journey.
 

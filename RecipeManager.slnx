@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RecipeManager.Tests/RecipeManager.Tests.csproj" />
+    <Project Path="tests/RecipeManager.BrowserTests/RecipeManager.BrowserTests.csproj" />
   </Folder>
 </Solution>
