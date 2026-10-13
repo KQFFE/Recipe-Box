@@ -38,15 +38,15 @@ if (layoutPreview) {
       return;
     }
 
-    const edgeSize = Math.min(96, window.innerHeight * 0.16);
+    const edgeSize = Math.min(180, window.innerHeight * 0.24);
     const distanceFromTop = touchPointerY;
     const distanceFromBottom = window.innerHeight - touchPointerY;
     if (distanceFromTop < edgeSize) {
       const intensity = 1 - Math.max(0, distanceFromTop) / edgeSize;
-      window.scrollBy(0, -Math.max(1, Math.ceil(intensity * 18)));
+      window.scrollBy(0, -Math.ceil(8 + intensity ** 2 * 72));
     } else if (distanceFromBottom < edgeSize) {
       const intensity = 1 - Math.max(0, distanceFromBottom) / edgeSize;
-      window.scrollBy(0, Math.max(1, Math.ceil(intensity * 18)));
+      window.scrollBy(0, Math.ceil(8 + intensity ** 2 * 72));
     }
 
     updateTouchDropTarget();

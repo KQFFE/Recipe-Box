@@ -78,6 +78,12 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             """
             () => {
                 window.scrollTo(0, 0);
+                window.layoutRequestedScroll = 0;
+                window.originalLayoutScrollBy = window.scrollBy.bind(window);
+                window.scrollBy = (x, y) => {
+                    window.layoutRequestedScroll += Math.abs(y);
+                    window.originalLayoutScrollBy(x, y);
+                };
                 const handle = document.querySelector("[data-layout-drag-handle='ingredients']");
                 const rect = handle.getBoundingClientRect();
                 const pointer = (type, x, y) => new PointerEvent(type, {
@@ -87,15 +93,19 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
                 window.dispatchEvent(pointer("pointermove", 100, window.innerHeight - 2));
             }
             """);
-        await page.WaitForTimeoutAsync(300);
-        var scrollPositionWhileHolding = await page.EvaluateAsync<int>("() => window.scrollY");
-        Assert.True(scrollPositionWhileHolding > 0, "Holding a section at the viewport edge should scroll the page.");
+        await page.WaitForTimeoutAsync(400);
+        var scrollDistanceRequested = await page.EvaluateAsync<int>("() => window.layoutRequestedScroll");
+        Assert.True(
+            scrollDistanceRequested >= 500,
+            $"Holding a section at the viewport edge should scroll quickly; requested {scrollDistanceRequested}px in 400ms.");
         await page.EvaluateAsync(
             """
             () => {
                 window.dispatchEvent(new PointerEvent("pointercancel", {
                     bubbles: true, cancelable: true, pointerId: 8, pointerType: "touch"
                 }));
+                window.scrollBy = window.originalLayoutScrollBy;
+                delete window.originalLayoutScrollBy;
                 window.scrollTo(0, 0);
             }
             """);
