@@ -7,18 +7,23 @@
 <div class="layout-editor-page">
     <a asp-page="Details" asp-route-id="@Model.Recipe.Id" class="text-decoration-none">&larr; Back to recipe</a>
     <h1 class="mt-2">Customize layout</h1>
-    <p class="text-secondary">
-        Drag sections to arrange them, or use each section's move buttons. Drag by touch or tap the move buttons on mobile.
-        Choose full width to span both columns. Changes are not saved until you select Save layout.
-    </p>
+    <details class="layout-help mb-3">
+        <summary class="text-secondary">How to customize</summary>
+        <div class="text-secondary">
+            <p>
+                Drag sections to arrange them, or use each section's move buttons. Drag by touch or tap the move buttons on mobile.
+                Choose full width to span both columns. Changes are not saved until you select Save layout.
+            </p>
+            <p id="layout-drag-instructions" class="mb-0">
+                Drag a section onto another to swap them. Hold near the top or bottom edge to scroll quickly. Tap View details to inspect a section.
+            </p>
+        </div>
+    </details>
 
     <form method="post" id="layout-editor-form">
         <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
         <section aria-labelledby="layout-preview-heading">
             <h2 id="layout-preview-heading" class="visually-hidden">Current layout preview</h2>
-            <p id="layout-drag-instructions" class="text-secondary">
-                Drag a section onto another to swap them. Hold near the top or bottom edge to scroll quickly. Tap View details to inspect a section.
-            </p>
             <div class="layout-editor-preview" aria-describedby="layout-drag-instructions">
                 <partial name="_RecipeContent" model="Model.Preview" />
             </div>

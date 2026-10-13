@@ -47,6 +47,15 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await ExpectHeadingAsync(page, "Browser-tested smoky soup");
         await page.GetByRole(AriaRole.Link, new() { Name = "Customize layout" }).ClickAsync();
         var layoutPreview = page.Locator(".layout-editor-preview");
+        var layoutHelp = page.Locator(".layout-help");
+        Assert.Null(await layoutHelp.GetAttributeAsync("open"));
+        await Assertions.Expect(layoutHelp.GetByText("How to customize")).ToBeVisibleAsync();
+        await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
+            .ToBeHiddenAsync();
+        await layoutHelp.GetByText("How to customize").ClickAsync();
+        await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
+            .ToBeVisibleAsync();
+        await layoutHelp.GetByText("How to customize").ClickAsync();
         await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.").First).ToBeVisibleAsync();
         var actionSpacing = await page.Locator(".layout-editor-actions")
             .EvaluateAsync<double>("element => parseFloat(getComputedStyle(element).marginTop)");
@@ -78,20 +87,33 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         Assert.All(desktopSectionsVisible, Assert.True);
         var desktopCardHeights = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<double[]>("sections => sections.map(section => section.getBoundingClientRect().height)");
-        Assert.All(desktopCardHeights, height => Assert.Equal(desktopCardHeights[0], height, 1));
+        var desktopCardHeight = await page.EvaluateAsync<double>(
+            "() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 24");
+        Assert.All(desktopCardHeights, height => Assert.Equal(desktopCardHeight, height, 1));
         await page.SetViewportSizeAsync(375, 667);
+        Assert.Null(await layoutHelp.GetAttributeAsync("open"));
+        var layoutHelpSummary = layoutHelp.Locator("summary");
+        await layoutHelpSummary.FocusAsync();
+        await layoutHelpSummary.PressAsync("Enter");
+        await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
+            .ToBeVisibleAsync();
+        await layoutHelpSummary.PressAsync("Enter");
+        await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
+            .ToBeHiddenAsync();
         var mobileSectionBounds = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => `${section.dataset.layoutSection}: ${Math.round(section.getBoundingClientRect().top)}-${Math.round(section.getBoundingClientRect().bottom)}`)");
-        var mobileSectionsFit = await layoutPreview.Locator("[data-layout-section]")
-            .EvaluateAllAsync<bool[]>("sections => sections.map(section => section.getBoundingClientRect().bottom <= innerHeight)");
         var mobileCardParts = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => `${section.dataset.layoutSection} column=${getComputedStyle(section).gridColumn} children: ${[...section.children].map(child => `${child.className || child.tagName}=${Math.round(child.getBoundingClientRect().height)}`).join(', ')}`)");
-        Assert.True(
-            mobileSectionsFit.All(fits => fits),
-            $"Sections should fit in the iPhone 8 viewport: {string.Join(", ", mobileSectionBounds)}. {string.Join("; ", mobileCardParts)}");
         var mobileCardHeights = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<double[]>("sections => sections.map(section => section.getBoundingClientRect().height)");
-        Assert.All(mobileCardHeights, height => Assert.Equal(mobileCardHeights[0], height, 1));
+        var mobileCardHeight = await page.EvaluateAsync<double>(
+            "() => parseFloat(getComputedStyle(document.documentElement).fontSize) * 20");
+        Assert.All(mobileCardHeights, height => Assert.Equal(mobileCardHeight, height, 1));
+        var mobilePageIsScrollable = await page.EvaluateAsync<bool>(
+            "() => document.documentElement.scrollHeight > document.documentElement.clientHeight");
+        Assert.True(
+            mobilePageIsScrollable,
+            $"The enlarged mobile cards should remain accessible by scrolling: {string.Join(", ", mobileSectionBounds)}. {string.Join("; ", mobileCardParts)}");
         var dragAndCheckboxShareRow = await layoutPreview.Locator("#recipe-section-image")
             .EvaluateAsync<bool>(
                 """

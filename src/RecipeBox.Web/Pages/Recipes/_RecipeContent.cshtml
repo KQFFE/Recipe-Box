@@ -48,14 +48,14 @@
                         break;
                         case RecipeLayoutDefinition.Ingredients:
                         <ul class="layout-section-summary-list">
-                            @foreach (var ingredient in Model.Ingredients.Take(2))
+                            @foreach (var ingredient in Model.Ingredients.Take(5))
                             {
                                 <li>@ingredient</li>
                             }
                         </ul>
-                        @if (Model.Ingredients.Count > 2)
+                        @if (Model.Ingredients.Count > 5)
                         {
-                            <span class="text-secondary">+ @(Model.Ingredients.Count - 2) more</span>
+                            <span class="text-secondary">+ @(Model.Ingredients.Count - 5) more</span>
                         }
                         break;
                         case RecipeLayoutDefinition.Instructions:
