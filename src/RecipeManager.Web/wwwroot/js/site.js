@@ -94,6 +94,7 @@ if (layoutPreview) {
         `${isExpanded ? "View full" : "Hide full"} ${expandButton.dataset.layoutLabel}`
       );
       details.hidden = isExpanded;
+      section.classList.toggle("layout-section-expanded", !isExpanded);
       return;
     }
 

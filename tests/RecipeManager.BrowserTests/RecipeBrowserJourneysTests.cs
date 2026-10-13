@@ -76,6 +76,9 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         var desktopSectionsVisible = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<bool[]>("sections => sections.map(section => section.getBoundingClientRect().bottom <= innerHeight)");
         Assert.All(desktopSectionsVisible, Assert.True);
+        var desktopCardHeights = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<double[]>("sections => sections.map(section => section.getBoundingClientRect().height)");
+        Assert.All(desktopCardHeights, height => Assert.Equal(desktopCardHeights[0], height, 1));
         await page.SetViewportSizeAsync(375, 667);
         var mobileSectionBounds = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => `${section.dataset.layoutSection}: ${Math.round(section.getBoundingClientRect().top)}-${Math.round(section.getBoundingClientRect().bottom)}`)");
@@ -86,6 +89,21 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         Assert.True(
             mobileSectionsFit.All(fits => fits),
             $"Sections should fit in the iPhone 8 viewport: {string.Join(", ", mobileSectionBounds)}. {string.Join("; ", mobileCardParts)}");
+        var mobileCardHeights = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<double[]>("sections => sections.map(section => section.getBoundingClientRect().height)");
+        Assert.All(mobileCardHeights, height => Assert.Equal(mobileCardHeights[0], height, 1));
+        var dragAndCheckboxShareRow = await layoutPreview.Locator("#recipe-section-image")
+            .EvaluateAsync<bool>(
+                """
+                section => {
+                    const drag = section.querySelector("[data-layout-drag-handle]").getBoundingClientRect();
+                    const checkbox = section.querySelector("[data-layout-width]").getBoundingClientRect();
+                    const dragCenterY = drag.top + drag.height / 2;
+                    const checkboxCenterY = checkbox.top + checkbox.height / 2;
+                    return Math.abs(dragCenterY - checkboxCenterY) < 2 && checkbox.left - drag.right >= 4;
+                }
+                """);
+        Assert.True(dragAndCheckboxShareRow, "The drag handle and width checkbox should have a visible gap on the same row.");
         await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }))
             .ToBeVisibleAsync();
         await layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }).ClickAsync();
