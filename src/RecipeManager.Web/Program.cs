@@ -18,6 +18,12 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
         options.SignIn.RequireConfirmedAccount = !isBrowserTesting)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddRazorPages();
+var imageStoragePath = builder.Configuration["RecipeImages:StoragePath"];
+builder.Services.AddSingleton<IRecipeImageStorage>(_ =>
+    new LocalRecipeImageStorage(
+        string.IsNullOrWhiteSpace(imageStoragePath)
+            ? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "recipe-images")
+            : Path.GetFullPath(imageStoragePath, builder.Environment.ContentRootPath)));
 if (isBrowserTesting)
 {
     builder.Services.AddSingleton<IRecipeTextExtractor, BrowserTestRecipeTextExtractor>();

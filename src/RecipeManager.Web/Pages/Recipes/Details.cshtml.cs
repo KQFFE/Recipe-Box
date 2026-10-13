@@ -50,7 +50,10 @@ public sealed class DetailsModel(ApplicationDbContext db) : RecipePageModel
             Ingredients,
             Instructions,
             LayoutSections,
-            FullWidthSections);
+            FullWidthSections,
+            !string.IsNullOrWhiteSpace(Recipe.StoredImageKey)
+                ? Url.Page("/Recipes/Image", values: new { id = Recipe.Id })
+                : Recipe.ImageUrl);
 
         return Page();
     }

@@ -22,6 +22,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(recipe => recipe.OwnerId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.Entity<Recipe>()
+            .HasIndex(recipe => recipe.StoredImageKey)
+            .IsUnique()
+            .HasFilter("\"StoredImageKey\" IS NOT NULL");
+
         builder.Entity<RecipeLayoutPreference>()
             .HasKey(layout => new { layout.RecipeId, layout.OwnerId });
 

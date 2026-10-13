@@ -16,7 +16,7 @@
                     break;
                 case RecipeLayoutDefinition.Image:
                     <h2 id="heading-@layoutSection.Key" class="visually-hidden">@layoutSection.Label</h2>
-                    <img src="@Model.Recipe.ImageUrl" class="img-fluid rounded-3 recipe-detail-image" alt="@Model.Recipe.Title" />
+                    <img src="@Model.ImageSource" class="img-fluid rounded-3 recipe-detail-image" alt="@Model.Recipe.Title" />
                     break;
                 case RecipeLayoutDefinition.Ingredients:
                     <h2 id="heading-@layoutSection.Key" class="h4">@layoutSection.Label</h2>

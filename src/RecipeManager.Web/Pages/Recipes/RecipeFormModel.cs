@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 using RecipeManager.Web.Models;
 
 namespace RecipeManager.Web.Pages.Recipes;
@@ -16,6 +17,16 @@ public sealed class RecipeFormModel : IValidatableObject
     [StringLength(2048)]
     [Display(Name = "Image URL")]
     public string? ImageUrl { get; set; }
+
+    [Display(Name = "Upload a cover image")]
+    public IFormFile? ImageUpload { get; set; }
+
+    [Display(Name = "Remove current uploaded image")]
+    public bool RemoveUploadedImage { get; set; }
+
+    public bool HasUploadedImage { get; set; }
+
+    public string? CurrentImageSource { get; set; }
 
     [StringLength(10000)]
     [Display(Name = "Ingredients")]

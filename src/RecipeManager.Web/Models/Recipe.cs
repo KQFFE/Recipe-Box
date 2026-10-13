@@ -16,6 +16,12 @@ public sealed class Recipe
     [StringLength(2048)]
     public string? ImageUrl { get; set; }
 
+    [StringLength(32)]
+    public string? StoredImageKey { get; set; }
+
+    [StringLength(32)]
+    public string? StoredImageContentType { get; set; }
+
     [Required]
     public string Ingredients { get; set; } = string.Empty;
 

@@ -12,6 +12,8 @@ public sealed class SharedModel(ApplicationDbContext db) : Microsoft.AspNetCore.
 {
     public RecipePresentation Presentation { get; private set; } = null!;
 
+    public string Token { get; private set; } = string.Empty;
+
     public async Task<IActionResult> OnGetAsync(string token, CancellationToken cancellationToken)
     {
         Response.Headers.CacheControl = "no-store";
@@ -20,6 +22,7 @@ public sealed class SharedModel(ApplicationDbContext db) : Microsoft.AspNetCore.
         {
             return NotFound();
         }
+        Token = token;
 
         var share = await db.RecipeShares
             .AsNoTracking()
@@ -52,7 +55,10 @@ public sealed class SharedModel(ApplicationDbContext db) : Microsoft.AspNetCore.
             RecipeContent.ToLines(recipe.Ingredients),
             RecipeContent.ToLines(recipe.Instructions),
             settings.Sections,
-            settings.FullWidthSections);
+            settings.FullWidthSections,
+            !string.IsNullOrWhiteSpace(recipe.StoredImageKey)
+                ? Url.Page("/Recipes/Image", values: new { id = recipe.Id, token })
+                : recipe.ImageUrl);
         return Page();
     }
 }

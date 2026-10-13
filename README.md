@@ -10,18 +10,19 @@ The project is intentionally growing through small, testable workflows. Recipe p
 - ASP.NET Core Identity sign-in and account-scoped recipe access.
 - Create, list, view, edit, and delete recipes.
 - Separate, ordered ingredient and preparation-step lists.
-- Optional description and HTTP/HTTPS image URL.
+- Optional description and HTTP/HTTPS image URL or uploaded cover image.
 - Validation rejects recipes without at least one ingredient and preparation step, unsafe image URL schemes, and ingredient or instruction text longer than 10,000 characters.
 - Capture a recipe photo from a phone or choose an image file; English and Swedish OCR extract a draft for review before saving.
 - OCR runs locally with Tesseract. Uploaded photos are processed in memory and are not retained; only the user-reviewed recipe text is saved.
 - Photo uploads accept JPEG, PNG, or WebP images up to 10 MB.
+- Upload a recipe cover image from create/edit; validated files are stored outside the web root, private to the owner, and removed when replaced or when the recipe is deleted. A read-only share link can display its recipe's uploaded image.
 - Import a public recipe page URL; Schema.org Recipe JSON-LD fields (title, description, image URL, ingredients, and steps) are extracted into an editable review form.
 - URL import accepts HTTP/HTTPS pages up to 2 MB, uses a 15-second request timeout, limits redirects, and blocks connections to non-public IP ranges. Pages without supported structured recipe data show an actionable error instead of being saved.
 - Customize each recipe's section order and full- or half-width layout. The preference is stored separately from recipe content and is scoped to both recipe and owner; layouts respond to phone-sized screens.
 - Create a revocable, read-only link for a recipe. Anyone with the link can view the recipe and its current saved layout, but cannot edit it. The link remains active until revoked or replaced. It is a bearer secret; only its SHA-256 hash is stored, and creating a replacement invalidates the previous link.
 - SQLite persistence and Entity Framework Core migrations.
-- Unit tests for recipe text normalization, draft parsing, form validation, upload validation, structured recipe parsing, share-token behavior, and public IP ranges; an OCR test exercises the real local engine.
-- HTTP-level tests for CRUD, invalid submissions, photo and URL import review/save, share-link creation/revocation, authentication, and account ownership.
+- Unit tests for recipe text normalization, draft parsing, form validation, image upload validation and local storage, structured recipe parsing, share-token behavior, and public IP ranges; an OCR test exercises the real local engine.
+- HTTP-level tests for CRUD, invalid submissions, image upload/replacement/removal, owner-only image access, photo and URL import review/save, share-link creation/revocation, authentication, and account ownership.
 - Responsive page layout for desktop and phone browsers.
 
 The app uses the standard ASP.NET Core Identity UI. Account confirmation is required by the current Identity configuration; configure and verify an email sender before relying on real account registration and confirmation flows.
@@ -54,7 +55,9 @@ dotnet restore RecipeManager.slnx
 dotnet run --project src\RecipeManager.Web\RecipeManager.Web.csproj
 ```
 
-Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeManager.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`, which stores local account and recipe data in `src\RecipeManager.Web\app.db` when run from the repository root. The database is local-only and ignored by Git; it is not copied into build or publish output. Do not commit or upload database files because they contain account and recipe data.
+Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeManager.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`, which stores local account and recipe data in `src\RecipeManager.Web\app.db` when run from the repository root. The database is local-only and ignored by Git; it is not copied into build or publish output. Uploaded cover images are stored outside the web root in `src\RecipeManager.Web\App_Data\recipe-images` by default (or in the configured `RecipeImages:StoragePath`). This directory is ignored by Git. Do not commit or upload database or image-storage files because they contain account and recipe data.
+
+Local filesystem storage is intended for development and single-server experiments. Before a multi-instance or production deployment, configure persistent private storage with appropriate backup/access controls or replace `IRecipeImageStorage` with an object-storage implementation.
 
 In Development, the app applies pending EF Core migrations at startup. Do not rely on automatic startup migrations for production deployments; apply reviewed migrations through a deliberate deployment step instead.
 
@@ -116,7 +119,7 @@ Build without running tests:
 dotnet build RecipeManager.slnx
 ```
 
-`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeLayoutTests` cover default settings and reject invalid section configurations; `RecipeLayoutPagesTests` cover saved layout order/width, content preservation, and owner isolation. `RecipeSharingTests` cover token generation, owner checks, read-only shared rendering with the saved layout, link rotation, and revocation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, photo and URL capture/review/save, authentication, and owner isolation. `RecipeManager.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, photo review/save, URL-import review/save, layout customization, and sharing in a real browser.
+`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeLayoutTests` cover default settings and reject invalid section configurations; `RecipeLayoutPagesTests` cover saved layout order/width, content preservation, and owner isolation. `LocalRecipeImageStorageTests` cover private per-owner file storage; `RecipeImagePagesTests` cover upload, replacement, removal, owner authorization, and share-link image access. `RecipeSharingTests` cover token generation, owner checks, read-only shared rendering with the saved layout, link rotation, and revocation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, photo and URL capture/review/save, authentication, and owner isolation. `RecipeManager.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, cover-image upload and share access, photo review/save, URL-import review/save, layout customization, and sharing in a real browser.
 
 ## Project structure
 
@@ -126,8 +129,9 @@ src/
   RecipeManager.Web/
     Areas/Identity/       ASP.NET Core Identity UI integration
     Data/                 EF Core DbContext and database migrations
+    App_Data/             Private local recipe-image files (ignored by Git)
     Models/               Recipe, layout-preference, and share models and shared content rules
-    Services/             OCR and URL import boundaries, share tokens, public-address checks, and upload validation
+    Services/             OCR, URL import, share-token, and recipe-image storage boundaries
     Pages/
       Recipes/            Recipe list, details, capture/import review, layout, sharing, create, edit, and delete pages
       Shared/             Shared page layout and navigation
@@ -149,6 +153,7 @@ dotnet-tools.json         Pinned local development tools
 - **Recipe website import:** `Pages/Recipes/Import.*` for the authenticated review-before-save flow, `Services/IRecipeUrlImporter.cs` for the replaceable website boundary, `Services/RecipeUrlImporter.cs` for bounded HTML retrieval, and `Models/RecipeStructuredDataParser.cs` for Schema.org JSON-LD extraction. The importer fetches remote pages, so retain the URL, size, redirect, timeout, and public-address checks if changing its implementation.
 - **Recipe layouts:** `Pages/Recipes/Layout.*` for the per-recipe editor, `Models/RecipeLayoutPreference.cs` for the separately persisted section order and width settings, and the `Details` page for rendering those sections. Keep layout state separate from recipe text and validate every section against the recipe's available content.
 - **Recipe sharing:** `Pages/Recipes/Share.*` manages a recipe owner's link; `Pages/Recipes/Shared.*` is the anonymous read-only view; `Services/RecipeShareToken.cs` generates high-entropy URL-safe tokens and hashes them before persistence. The shared page reuses `_RecipeContent.cshtml` and the owner's saved layout. Treat each share URL as a password: anyone who has it can view the recipe, and revoking or replacing the link stops access.
+- **Recipe cover images:** `Services/IRecipeImageStorage.cs` defines the storage boundary; `Services/LocalRecipeImageStorage.cs` is the private local-filesystem implementation. `Pages/Recipes/Image.*` only serves an image to its recipe owner or through an active share link. Keep image data out of the database and public static files, validate content signatures and size at `Services/RecipeImageUpload.cs`, and clean up replaced/deleted images.
 - **Upload constraints:** `Services/RecipeImageUpload.cs`; keep file-size and format checks at the upload boundary.
 - **A recipe screen or page-specific form model:** `Pages/Recipes/`, keeping the `.cshtml` view beside its Razor Page model.
 - **Shared navigation or page chrome:** `Pages/Shared/`.
@@ -161,9 +166,9 @@ Keep recipes scoped to the authenticated Identity user. Page handlers should que
 
 ## Scope and next increments
 
-Recipe photos are OCR'd locally into an editable draft; no photo file or unreviewed OCR output is persisted. Website import reads Schema.org Recipe JSON-LD and extracts the page's declared image URL; it does not download or store image files or preserve the source URL as recipe metadata. In both workflows, users review and can correct all extracted recipe fields before saving. Users can customize the order and widths of the description, image, ingredients, and preparation sections per recipe; this changes only presentation, not saved content. An owner can create a revocable read-only share link; anyone with the link can view the recipe using the owner's current layout, but cannot edit the recipe. New links rotate the secret token, and the stored database value is a hash rather than the bearer token. The recipe form validates required content and image URL schemes, and tests cover invalid create/edit/import submissions and cross-account access boundaries. Real-browser tests cover CRUD, photo capture, URL import, layout customization, and sharing. The next planned increment is:
+Recipe photos are OCR'd locally into an editable draft; the OCR source photo and unreviewed OCR output are not persisted. Website import reads Schema.org Recipe JSON-LD and extracts the page's declared image URL; it does not download image files or preserve the source URL as recipe metadata. In both workflows, users review and can correct extracted recipe fields before saving. Separately, recipe owners can upload an optional JPEG, PNG, or WebP cover image up to 10 MB. Image bytes are stored outside the web root behind `IRecipeImageStorage`; the default local provider stores files in ignored `App_Data` and serves them only to the owner or through an active share link. This local provider is not a multi-server production-storage strategy. Users can customize the order and widths of the description, image, ingredients, and preparation sections per recipe; this changes only presentation, not saved content. An owner can create a revocable read-only share link; anyone with the link can view the recipe using the owner's current layout, but cannot edit the recipe. New links rotate the secret token, and the stored database value is a hash rather than the bearer token. Real-browser tests cover CRUD, cover-image upload and sharing, photo capture, URL import, layout customization, and sharing. The next planned increment is:
 
-1. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
+1. Evaluate web image search or AI image generation, with explicit privacy, licensing, attribution, and cost requirements before selecting a provider.
 
 Each increment should include unit tests for its rules, HTTP or integration tests for persistence and account boundaries, and browser-level end-to-end coverage for its main user journey.
 

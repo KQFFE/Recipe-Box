@@ -29,7 +29,8 @@ public sealed record RecipePresentation(
     IReadOnlyList<string> Ingredients,
     IReadOnlyList<string> Instructions,
     IReadOnlyList<RecipeLayoutSection> LayoutSections,
-    IReadOnlySet<string> FullWidthSections);
+    IReadOnlySet<string> FullWidthSections,
+    string? ImageSource);
 
 public static class RecipeLayoutDefinition
 {
@@ -46,7 +47,8 @@ public static class RecipeLayoutDefinition
             sections.Add(new RecipeLayoutSection(Description, "Description"));
         }
 
-        if (!string.IsNullOrWhiteSpace(recipe.ImageUrl))
+        if (!string.IsNullOrWhiteSpace(recipe.ImageUrl)
+            || !string.IsNullOrWhiteSpace(recipe.StoredImageKey))
         {
             sections.Add(new RecipeLayoutSection(Image, "Image"));
         }

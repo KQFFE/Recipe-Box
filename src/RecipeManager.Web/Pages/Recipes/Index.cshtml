@@ -4,6 +4,10 @@
     ViewData["Title"] = "My recipes";
 }
 
+@if (TempData["ImageCleanupWarning"] is string warning)
+{
+    <div class="alert alert-warning" role="status">@warning</div>
+}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
     <div>
         <p class="text-uppercase text-secondary fw-semibold small mb-1">Your collection</p>
@@ -30,7 +34,12 @@ else
         {
             <div class="col-12 col-md-6 col-xl-4">
                 <article class="card h-100 shadow-sm">
-                    @if (!string.IsNullOrWhiteSpace(recipe.ImageUrl))
+                    @if (!string.IsNullOrWhiteSpace(recipe.StoredImageKey))
+                    {
+                        <img src="@Url.Page("/Recipes/Image", values: new { id = recipe.Id })"
+                             class="card-img-top recipe-card-image" alt="" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(recipe.ImageUrl))
                     {
                         <img src="@recipe.ImageUrl" class="card-img-top recipe-card-image" alt="" />
                     }

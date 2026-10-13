@@ -242,6 +242,14 @@ namespace RecipeManager.Web.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("StoredImageContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StoredImageKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -253,6 +261,10 @@ namespace RecipeManager.Web.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId");
+
+                    b.HasIndex("StoredImageKey")
+                        .IsUnique()
+                        .HasFilter("\"StoredImageKey\" IS NOT NULL");
 
                     b.ToTable("Recipes");
                 });

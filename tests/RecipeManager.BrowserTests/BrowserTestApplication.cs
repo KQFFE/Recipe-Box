@@ -12,6 +12,9 @@ public sealed class BrowserTestApplication : IAsyncLifetime
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
         $"recipe-manager-browser-tests-{Guid.NewGuid():N}.db");
+    private readonly string imageStoragePath = Path.Combine(
+        Path.GetTempPath(),
+        $"recipe-manager-browser-images-{Guid.NewGuid():N}");
     private readonly StringBuilder processOutput = new();
     private Process? process;
     private IPlaywright? playwright;
@@ -46,6 +49,7 @@ public sealed class BrowserTestApplication : IAsyncLifetime
         startInfo.Environment["RecipeBox__BrowserTestMode"] = "true";
         startInfo.Environment["ASPNETCORE_URLS"] = BaseUrl;
         startInfo.Environment["ConnectionStrings__DefaultConnection"] = $"Data Source={databasePath}";
+        startInfo.Environment["RecipeImages__StoragePath"] = imageStoragePath;
 
         process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
         process.OutputDataReceived += (_, args) => AppendOutput(args.Data);
@@ -89,6 +93,11 @@ public sealed class BrowserTestApplication : IAsyncLifetime
             {
                 File.Delete(path);
             }
+        }
+
+        if (Directory.Exists(imageStoragePath))
+        {
+            Directory.Delete(imageStoragePath, recursive: true);
         }
     }
 

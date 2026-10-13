@@ -25,6 +25,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
 
     public TestRecipeUrlImporter UrlImporter { get; } = new();
 
+    public TestRecipeImageStorage ImageStorage { get; } = new();
+
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
         $"recipe-manager-tests-{Guid.NewGuid():N}.db");
@@ -46,6 +48,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
             services.AddSingleton<IRecipeTextExtractor>(TextExtractor);
             services.RemoveAll<IRecipeUrlImporter>();
             services.AddSingleton<IRecipeUrlImporter>(UrlImporter);
+            services.RemoveAll<IRecipeImageStorage>();
+            services.AddSingleton<IRecipeImageStorage>(ImageStorage);
 
             services
                 .AddAuthentication(options =>
@@ -158,8 +162,11 @@ public sealed class TestAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
+        var userId = Request.Headers.TryGetValue("X-Test-UserId", out var requestedUserId)
+            ? requestedUserId.ToString()
+            : RecipeAppFactory.TestUserId;
         var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, RecipeAppFactory.TestUserId)],
+            [new Claim(ClaimTypes.NameIdentifier, userId)],
             AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, AuthenticationScheme);

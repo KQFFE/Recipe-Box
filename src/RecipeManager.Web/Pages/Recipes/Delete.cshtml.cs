@@ -3,11 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RecipeManager.Web.Data;
 using RecipeManager.Web.Models;
+using RecipeManager.Web.Services;
 
 namespace RecipeManager.Web.Pages.Recipes;
 
 [Authorize]
-public sealed class DeleteModel(ApplicationDbContext db) : RecipePageModel
+public sealed class DeleteModel(
+    ApplicationDbContext db,
+    IRecipeImageStorage imageStorage,
+    ILogger<DeleteModel> logger) : RecipePageModel
 {
     [BindProperty(SupportsGet = true)]
     public int Id { get; set; }
@@ -36,6 +40,16 @@ public sealed class DeleteModel(ApplicationDbContext db) : RecipePageModel
 
         db.Recipes.Remove(recipe);
         await db.SaveChangesAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(recipe.StoredImageKey)
+            && !await RecipeImageStorageCleanup.TryDeleteAsync(
+                imageStorage,
+                recipe.OwnerId,
+                recipe.StoredImageKey,
+                logger,
+                CancellationToken.None))
+        {
+            TempData["ImageCleanupWarning"] = "The recipe was deleted, but its uploaded image could not be removed.";
+        }
 
         return RedirectToPage("Index");
     }
