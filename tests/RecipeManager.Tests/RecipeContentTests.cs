@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using RecipeManager.Web.Pages.Recipes;
 using RecipeManager.Web.Models;
 
 namespace RecipeManager.Tests;
@@ -26,5 +28,84 @@ public sealed class RecipeContentTests
     public void ToLines_ReturnsEmptyListForBlankContent()
     {
         Assert.Empty(RecipeContent.ToLines(" \r\n "));
+    }
+
+    [Fact]
+    public void RecipeDraftParser_SeparatesRecipeSections()
+    {
+        var draft = RecipeDraftParser.Parse(
+            "Tomato soup\nIngredients:\n4 tomatoes\n1 onion\nDirections:\nRoast vegetables.\nBlend until smooth.");
+
+        Assert.Equal("Tomato soup", draft.Title);
+        Assert.Equal($"4 tomatoes{Environment.NewLine}1 onion", draft.Ingredients);
+        Assert.Equal($"Roast vegetables.{Environment.NewLine}Blend until smooth.", draft.Instructions);
+    }
+
+    [Fact]
+    public void RecipeDraftParser_RecognizesCaseInsensitiveMethodHeading()
+    {
+        var draft = RecipeDraftParser.Parse("Toast\n1 slice bread\nMETHOD:\nToast the bread.");
+
+        Assert.Equal("1 slice bread", draft.Ingredients);
+        Assert.Equal("Toast the bread.", draft.Instructions);
+    }
+
+    [Fact]
+    public void RecipeFormModel_RejectsContentWithoutIngredientsOrInstructions()
+    {
+        var model = new RecipeFormModel
+        {
+            Title = "Tomato soup",
+            Ingredients = " \r\n ",
+            Instructions = "\n"
+        };
+
+        var results = Validate(model);
+
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(model.Ingredients)));
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(model.Instructions)));
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///C:/private/image.png")]
+    [InlineData("/images/soup.png")]
+    [InlineData("http:example.test/soup.png")]
+    public void RecipeFormModel_RejectsNonHttpImageUrls(string imageUrl)
+    {
+        var model = new RecipeFormModel
+        {
+            Title = "Tomato soup",
+            Ingredients = "Tomatoes",
+            Instructions = "Roast the tomatoes.",
+            ImageUrl = imageUrl
+        };
+
+        var results = Validate(model);
+
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(model.ImageUrl)));
+    }
+
+    [Theory]
+    [InlineData("https://example.test/soup.png")]
+    [InlineData("http://example.test/soup.png")]
+    public void RecipeFormModel_AcceptsHttpImageUrls(string imageUrl)
+    {
+        var model = new RecipeFormModel
+        {
+            Title = "Tomato soup",
+            Ingredients = "Tomatoes",
+            Instructions = "Roast the tomatoes.",
+            ImageUrl = imageUrl
+        };
+
+        Assert.Empty(Validate(model));
+    }
+
+    private static IList<ValidationResult> Validate(RecipeFormModel model)
+    {
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(model, new ValidationContext(model), results, validateAllProperties: true);
+        return results;
     }
 }

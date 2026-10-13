@@ -9,7 +9,10 @@
         <p class="text-uppercase text-secondary fw-semibold small mb-1">Your collection</p>
         <h1 class="mb-0">My recipes</h1>
     </div>
-    <a class="btn btn-primary" asp-page="Create">Add a recipe</a>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" asp-page="Capture">Capture from a photo</a>
+        <a class="btn btn-primary" asp-page="Create">Add a recipe</a>
+    </div>
 </div>
 
 @if (Model.Recipes.Count == 0)

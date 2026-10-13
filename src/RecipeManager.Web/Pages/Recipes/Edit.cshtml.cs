@@ -51,8 +51,8 @@ public sealed class EditModel(ApplicationDbContext db) : RecipePageModel
         recipe.Title = Input.Title.Trim();
         recipe.Description = Input.Description?.Trim();
         recipe.ImageUrl = Input.ImageUrl?.Trim();
-        recipe.Ingredients = RecipeContent.NormalizeLines(Input.Ingredients);
-        recipe.Instructions = RecipeContent.NormalizeLines(Input.Instructions);
+        recipe.Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty);
+        recipe.Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty);
         recipe.UpdatedAtUtc = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);

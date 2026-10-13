@@ -14,7 +14,6 @@ public sealed class Recipe
     public string? Description { get; set; }
 
     [StringLength(2048)]
-    [Url]
     public string? ImageUrl { get; set; }
 
     [Required]

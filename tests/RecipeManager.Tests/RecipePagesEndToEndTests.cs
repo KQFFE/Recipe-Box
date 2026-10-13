@@ -45,6 +45,22 @@ public sealed class RecipePagesEndToEndTests
         var editResponse = await client.GetAsync($"{recipePath.Replace("/Details/", "/Edit/")}");
         Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
         var editToken = ExtractAntiforgeryToken(await editResponse.Content.ReadAsStringAsync());
+        var invalidUpdateResponse = await client.PostAsync(
+            editResponse.RequestMessage!.RequestUri!.AbsolutePath,
+            Form(editToken, new Dictionary<string, string>
+            {
+                ["Input.Title"] = "This update should not persist",
+                ["Input.Description"] = "Invalid update.",
+                ["Input.Ingredients"] = "6 tomatoes",
+                ["Input.Instructions"] = " "
+            }));
+        Assert.Equal(HttpStatusCode.OK, invalidUpdateResponse.StatusCode);
+        Assert.Contains(
+            "Enter at least one preparation step.",
+            VisibleText(await invalidUpdateResponse.Content.ReadAsStringAsync()),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Roasted tomato soup", await client.GetStringAsync(recipePath));
+
         var updateResponse = await client.PostAsync(
             editResponse.RequestMessage!.RequestUri!.AbsolutePath,
             Form(editToken, new Dictionary<string, string>
@@ -70,8 +86,9 @@ public sealed class RecipePagesEndToEndTests
 
         Assert.Equal(HttpStatusCode.Redirect, deleteResult.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(recipePath)).StatusCode);
-        var emptyList = await client.GetStringAsync("/Recipes");
-        Assert.Contains("recipe box is empty", emptyList);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Empty(await db.Recipes.Where(recipe => recipe.OwnerId == RecipeAppFactory.TestUserId).ToListAsync());
     }
 
     [Fact]
@@ -81,7 +98,7 @@ public sealed class RecipePagesEndToEndTests
         using var client = factory.CreateAppClient();
         client.DefaultRequestHeaders.Add("X-Test-Unauthenticated", "true");
 
-        foreach (var path in new[] { "/Recipes", "/Recipes/Create" })
+        foreach (var path in new[] { "/Recipes", "/Recipes/Create", "/Recipes/Capture" })
         {
             var response = await client.GetAsync(path);
 
@@ -90,11 +107,114 @@ public sealed class RecipePagesEndToEndTests
     }
 
     [Fact]
+    public async Task CreatePage_RejectsEmptyContentAndUnsafeImageUrl()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+
+        var createPage = await client.GetAsync("/Recipes/Create");
+        var token = ExtractAntiforgeryToken(await createPage.Content.ReadAsStringAsync());
+        var response = await client.PostAsync(
+            "/Recipes/Create",
+            Form(token, new Dictionary<string, string>
+            {
+                ["Input.Title"] = "Tomato soup",
+                ["Input.Ingredients"] = " \r\n ",
+                ["Input.Instructions"] = "Roast the tomatoes.",
+                ["Input.ImageUrl"] = "javascript:alert(1)"
+            }));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(
+            VisibleText(html).Contains("Enter at least one ingredient.", StringComparison.OrdinalIgnoreCase),
+            $"Invalid post response:\n{VisibleText(html)}");
+        Assert.Contains(
+            "Enter an image URL that starts with http:// or https://.",
+            VisibleText(html),
+            StringComparison.OrdinalIgnoreCase);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Empty(await db.Recipes.Where(recipe => recipe.OwnerId == RecipeAppFactory.TestUserId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task CapturePage_ExtractsReviewsAndSavesRecipeDraft()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var capturePage = await client.GetAsync("/Recipes/Capture");
+        var token = ExtractAntiforgeryToken(await capturePage.Content.ReadAsStringAsync());
+
+        using var upload = CreateImageUpload(token, [0xFF, 0xD8, 0xFF, 0xD9]);
+        var extractResponse = await client.PostAsync("/Recipes/Capture?handler=Extract", upload);
+        Assert.Equal(HttpStatusCode.OK, extractResponse.StatusCode);
+        var reviewHtml = await extractResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Review the extracted recipe", reviewHtml);
+        Assert.Contains("value=\"Tomato soup\"", reviewHtml);
+        Assert.Contains("4 tomatoes", reviewHtml);
+        Assert.Contains("Roast the vegetables.", reviewHtml);
+
+        var reviewToken = ExtractAntiforgeryToken(reviewHtml);
+        var saveResponse = await client.PostAsync(
+            "/Recipes/Capture?handler=Save",
+            Form(reviewToken, new Dictionary<string, string>
+            {
+                ["Input.Title"] = "Tomato soup",
+                ["Input.Ingredients"] = "4 tomatoes\n1 onion",
+                ["Input.Instructions"] = "Roast the vegetables.\nBlend until smooth."
+            }));
+
+        Assert.Equal(HttpStatusCode.Redirect, saveResponse.StatusCode);
+        Assert.Equal(1, factory.TextExtractor.CallCount);
+        Assert.Equal(4, factory.TextExtractor.LastImageLength);
+
+        var details = await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString);
+        Assert.Contains("Tomato soup", details);
+        Assert.Contains("1 onion", details);
+        Assert.Contains("Blend until smooth.", details);
+    }
+
+    [Fact]
+    public async Task CapturePage_RejectsInvalidImagesAndDoesNotSaveUnreadableDrafts()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var capturePage = await client.GetAsync("/Recipes/Capture");
+        var token = ExtractAntiforgeryToken(await capturePage.Content.ReadAsStringAsync());
+
+        using (var invalidUpload = CreateImageUpload(token, [0x00, 0x01, 0x02]))
+        {
+            var invalidResponse = await client.PostAsync("/Recipes/Capture?handler=Extract", invalidUpload);
+            Assert.Equal(HttpStatusCode.OK, invalidResponse.StatusCode);
+            Assert.Contains(
+                "Upload a valid JPEG, PNG, or WebP image.",
+                VisibleText(await invalidResponse.Content.ReadAsStringAsync()));
+            Assert.Equal(0, factory.TextExtractor.CallCount);
+        }
+
+        factory.TextExtractor.Text = string.Empty;
+        using var emptyUpload = CreateImageUpload(token, [0xFF, 0xD8, 0xFF, 0xD9]);
+        var emptyResponse = await client.PostAsync("/Recipes/Capture?handler=Extract", emptyUpload);
+        Assert.Equal(HttpStatusCode.OK, emptyResponse.StatusCode);
+        Assert.Contains(
+            "No readable text was found.",
+            VisibleText(await emptyResponse.Content.ReadAsStringAsync()));
+        Assert.Equal(1, factory.TextExtractor.CallCount);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Empty(await db.Recipes.Where(recipe => recipe.OwnerId == RecipeAppFactory.TestUserId).ToListAsync());
+    }
+
+    [Fact]
     public async Task RecipeDetails_HideRecipesOwnedByAnotherAccount()
     {
         using var factory = new RecipeAppFactory();
         using var client = factory.CreateAppClient();
         int recipeId;
+        int ownRecipeId;
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -107,7 +227,7 @@ public sealed class RecipePagesEndToEndTests
                 UserName = otherOwnerEmail,
                 NormalizedUserName = otherOwnerEmail.ToUpperInvariant()
             });
-            var recipe = new Recipe
+            var otherRecipe = new Recipe
             {
                 Title = "Private recipe",
                 Ingredients = "1 ingredient",
@@ -116,16 +236,42 @@ public sealed class RecipePagesEndToEndTests
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow
             };
-            db.Recipes.Add(recipe);
+            var ownRecipe = new Recipe
+            {
+                Title = "My recipe",
+                Ingredients = "1 ingredient",
+                Instructions = "1 step",
+                OwnerId = RecipeAppFactory.TestUserId,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+            db.Recipes.AddRange(otherRecipe, ownRecipe);
             await db.SaveChangesAsync();
-            recipeId = recipe.Id;
+            recipeId = otherRecipe.Id;
+            ownRecipeId = ownRecipe.Id;
         }
+
+        var recipeList = await client.GetStringAsync("/Recipes");
+        Assert.Contains("My recipe", recipeList);
+        Assert.DoesNotContain("Private recipe", recipeList);
 
         foreach (var page in new[] { "Details", "Edit", "Delete" })
         {
             var response = await client.GetAsync($"/Recipes/{page}/{recipeId}");
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
+
+        var ownDeletePage = await client.GetAsync($"/Recipes/Delete/{ownRecipeId}");
+        Assert.Equal(HttpStatusCode.OK, ownDeletePage.StatusCode);
+        var token = ExtractAntiforgeryToken(await ownDeletePage.Content.ReadAsStringAsync());
+        var deniedDelete = await client.PostAsync(
+            $"/Recipes/Delete/{recipeId}",
+            Form(token, new Dictionary<string, string> { ["Id"] = recipeId.ToString() }));
+        Assert.Equal(HttpStatusCode.NotFound, deniedDelete.StatusCode);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.NotNull(await verificationDb.Recipes.SingleOrDefaultAsync(recipe => recipe.Id == recipeId));
     }
 
     private static FormUrlEncodedContent Form(
@@ -140,6 +286,16 @@ public sealed class RecipePagesEndToEndTests
         return new FormUrlEncodedContent(values);
     }
 
+    private static MultipartFormDataContent CreateImageUpload(string token, byte[] imageBytes)
+    {
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(token), "__RequestVerificationToken");
+        var image = new ByteArrayContent(imageBytes);
+        image.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        content.Add(image, "photo", "recipe.jpg");
+        return content;
+    }
+
     private static string ExtractAntiforgeryToken(string html)
     {
         var match = Regex.Match(
@@ -149,4 +305,7 @@ public sealed class RecipePagesEndToEndTests
         Assert.True(match.Success, "The form should contain an antiforgery token.");
         return WebUtility.HtmlDecode(match.Groups[1].Value);
     }
+
+    private static string VisibleText(string html) =>
+        WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]*>", " "));
 }

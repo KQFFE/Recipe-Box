@@ -28,8 +28,8 @@ public sealed class CreateModel(ApplicationDbContext db) : RecipePageModel
             Title = Input.Title.Trim(),
             Description = Input.Description?.Trim(),
             ImageUrl = Input.ImageUrl?.Trim(),
-            Ingredients = RecipeContent.NormalizeLines(Input.Ingredients),
-            Instructions = RecipeContent.NormalizeLines(Input.Instructions),
+            Ingredients = RecipeContent.NormalizeLines(Input.Ingredients ?? string.Empty),
+            Instructions = RecipeContent.NormalizeLines(Input.Instructions ?? string.Empty),
             OwnerId = CurrentUserId,
             CreatedAtUtc = now,
             UpdatedAtUtc = now

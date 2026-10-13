@@ -2,7 +2,7 @@
 
 Recipe Box is the starting point for a personal recipe-capturing and management app. The first release is a responsive ASP.NET Core web app: signed-in users can keep their own recipes, with ingredients and preparation steps stored separately.
 
-The project is intentionally starting with a small, testable foundation. Recipe photo OCR, importing from recipe websites, custom recipe layouts, and sharing are future work; they are not implemented yet.
+The project is intentionally growing through small, testable workflows. Recipe photo OCR and review-before-save are implemented. Recipe website import, custom layouts, sharing, and recipe-image storage are future work.
 
 ## What works today
 
@@ -10,12 +10,23 @@ The project is intentionally starting with a small, testable foundation. Recipe 
 - ASP.NET Core Identity sign-in and account-scoped recipe access.
 - Create, list, view, edit, and delete recipes.
 - Separate, ordered ingredient and preparation-step lists.
-- Optional description and image URL.
+- Optional description and HTTP/HTTPS image URL.
+- Validation rejects recipes without at least one ingredient and preparation step, unsafe image URL schemes, and ingredient or instruction text longer than 10,000 characters.
+- Capture a recipe photo from a phone or choose an image file; English OCR extracts a draft for review before saving.
+- OCR runs locally with Tesseract. Uploaded photos are processed in memory and are not retained; only the user-reviewed recipe text is saved.
+- Photo uploads accept JPEG, PNG, or WebP images up to 10 MB.
 - SQLite persistence and Entity Framework Core migrations.
-- Unit tests for recipe text normalization and HTTP-level tests for the recipe CRUD flow, authentication, and ownership.
+- Unit tests for recipe text normalization, draft parsing, form validation, and upload validation; an OCR test exercises the real local engine.
+- HTTP-level tests for CRUD, invalid submissions, photo capture/review/save, authentication, and account ownership.
 - Responsive page layout for desktop and phone browsers.
 
 The app uses the standard ASP.NET Core Identity UI. Account confirmation is required by the current Identity configuration; configure and verify an email sender before relying on real account registration and confirmation flows.
+
+### OCR runtime
+
+The app uses the `TesseractOCR` .NET wrapper and includes Tesseract's English `tessdata_fast` model under `src\RecipeManager.Web\tessdata`. The model is pinned to source revision `87416418657359cb625c412a48b6e1d6d41c29bd` (SHA-256 `7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`); its Apache 2.0 license is included alongside it. The test OCR image and its license are in `tests\RecipeManager.Tests\TestData`.
+
+On Windows, the Tesseract package requires the Microsoft Visual C++ 2022 x64 runtime. On Linux or macOS, install the native Tesseract/Leptonica dependencies required by the wrapper for that host before using OCR. OCR is English-only in this first slice.
 
 ## Prerequisites
 
@@ -81,7 +92,7 @@ Build without running tests:
 dotnet build RecipeManager.slnx
 ```
 
-`RecipeContentTests` are unit tests. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host and a temporary SQLite database to exercise HTTP page requests, form posts, authentication, and owner isolation. The test authentication handler is test-only; it is not registered by the web app. These are HTTP-level end-to-end tests, not real-browser Playwright tests.
+`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, a fake OCR boundary, and an isolated temporary SQLite database to exercise HTTP page requests, invalid submissions, photo capture/review/save, authentication, and owner isolation (including cross-account delete attempts). The test authentication handler and fake extractor are test-only; neither is registered by the web app. These are HTTP-level end-to-end tests, not real-browser Playwright tests.
 
 ## Project structure
 
@@ -92,20 +103,25 @@ src/
     Areas/Identity/       ASP.NET Core Identity UI integration
     Data/                 EF Core DbContext and database migrations
     Models/               Persisted recipe model and shared recipe-content helpers
+    Services/             OCR extraction boundary and upload validation
     Pages/
-      Recipes/            Recipe list, details, create, edit, and delete pages
+      Recipes/            Recipe list, details, capture/review, create, edit, and delete pages
       Shared/             Shared page layout and navigation
     wwwroot/               Static CSS, JavaScript, and browser libraries
+    tessdata/              Pinned OCR language model and license
     Program.cs             Dependency injection and HTTP pipeline configuration
     appsettings*.json      Local application configuration
 tests/
   RecipeManager.Tests/    Unit tests and HTTP-level application tests
+    TestData/              Licensed OCR fixture and expected text
 dotnet-tools.json         Pinned local development tools
 ```
 
 ### Where new code should go
 
 - **Recipe persistence fields and shared recipe data rules:** `Models/`, with database configuration in `Data/ApplicationDbContext.cs`; add a migration when the schema changes.
+- **Recipe capture and OCR:** `Pages/Recipes/Capture.*` for the authenticated review-before-save flow, `Services/IRecipeTextExtractor.cs` for the replaceable OCR boundary, and `Models/RecipeDraftParser.cs` for the testable English section-heading heuristic.
+- **Upload constraints:** `Services/RecipeImageUpload.cs`; keep file-size and format checks at the upload boundary.
 - **A recipe screen or page-specific form model:** `Pages/Recipes/`, keeping the `.cshtml` view beside its Razor Page model.
 - **Shared navigation or page chrome:** `Pages/Shared/`.
 - **Application-wide service registration or middleware:** `Program.cs`.
@@ -117,14 +133,13 @@ Keep recipes scoped to the authenticated Identity user. Page handlers should que
 
 ## Scope and next increments
 
-The near-term goal is to grow the app in independent, testable vertical slices:
+Recipe photos are OCR'd locally into an editable draft; no photo file or unreviewed OCR output is persisted. The recipe form validates required content and image URL schemes, and tests cover invalid create/edit submissions and cross-account read/delete boundaries. Real-browser tests remain future work. The near-term goal is to grow the app in independent, testable vertical slices:
 
-1. Improve recipe editing and validation, then add browser-based tests for important user journeys.
-2. Add photo upload and OCR as an extraction-and-review flow before saving any recognized text.
-3. Add recipe URL import with structured extraction, clear error states, and a review step.
-4. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
-5. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
-6. Add image selection or generation behind a replaceable provider, with licensing, attribution, and cost considerations addressed before use.
+1. Add real-browser tests for the important recipe and photo-capture journeys.
+2. Add recipe URL import with structured extraction, clear error states, and a review step.
+3. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
+4. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
+5. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
 
 Each increment should include unit tests for its rules, HTTP or integration tests for persistence and account boundaries, and browser-level end-to-end coverage for its main user journey.
 

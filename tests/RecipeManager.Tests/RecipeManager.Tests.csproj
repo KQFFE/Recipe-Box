@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\src\RecipeManager.Web\tessdata\**\*" Link="tessdata\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="TestData\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\RecipeManager.Web\RecipeManager.Web.csproj" />
   </ItemGroup>
 

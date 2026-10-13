@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RecipeManager.Web.Data;
+using RecipeManager.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,12 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddRazorPages();
+builder.Services.AddScoped<IRecipeTextExtractor>(services =>
+{
+    var environment = services.GetRequiredService<IWebHostEnvironment>();
+    var tessdataPath = Path.Combine(environment.ContentRootPath, "tessdata");
+    return new TesseractRecipeTextExtractor(tessdataPath);
+});
 
 var app = builder.Build();
 

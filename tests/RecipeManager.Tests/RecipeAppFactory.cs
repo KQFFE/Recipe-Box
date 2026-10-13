@@ -5,18 +5,22 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RecipeManager.Web.Data;
+using RecipeManager.Web.Services;
 
 namespace RecipeManager.Tests;
 
 public sealed class RecipeAppFactory : WebApplicationFactory<Program>
 {
     public const string TestUserId = "recipe-test-user";
+
+    public TestRecipeTextExtractor TextExtractor { get; } = new();
 
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
@@ -25,12 +29,19 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={databasePath}"
-            }));
         builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ApplicationDbContext>();
+            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = databasePath,
+                Pooling = false
+            }.ToString();
+            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString));
+            services.RemoveAll<IRecipeTextExtractor>();
+            services.AddSingleton<IRecipeTextExtractor>(TextExtractor);
+
             services
                 .AddAuthentication(options =>
                 {
@@ -39,7 +50,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
                 })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                     TestAuthenticationHandler.AuthenticationScheme,
-                    _ => { }));
+                    _ => { });
+        });
     }
 
     public HttpClient CreateAppClient()
@@ -78,6 +90,23 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
         {
             File.Delete(databasePath);
         }
+    }
+}
+
+public sealed class TestRecipeTextExtractor : IRecipeTextExtractor
+{
+    public string Text { get; set; } =
+        "Tomato soup\nIngredients:\n4 tomatoes\n1 onion\nInstructions:\nRoast the vegetables.\nBlend until smooth.";
+
+    public int CallCount { get; private set; }
+
+    public int LastImageLength { get; private set; }
+
+    public string ExtractText(byte[] imageBytes)
+    {
+        CallCount++;
+        LastImageLength = imageBytes.Length;
+        return Text;
     }
 }
 
