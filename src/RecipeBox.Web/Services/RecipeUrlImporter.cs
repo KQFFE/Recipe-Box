@@ -39,8 +39,9 @@ public sealed class RecipeUrlImporter(HttpClient httpClient) : IRecipeUrlImporte
         var html = await ReadHtmlAsync(response.Content, cancellationToken);
         var finalUri = response.RequestMessage?.RequestUri ?? recipeUri;
         return RecipeStructuredDataParser.Parse(html, finalUri)
+            ?? RecipePageTextParser.Parse(html, finalUri)
             ?? throw new RecipeImportException(
-                "No supported recipe data was found on that page. Try a page with Schema.org Recipe structured data.");
+                "Recipe Box couldn't find a recipe title with both ingredient and instruction sections in the page. Try a printer-friendly recipe page or use Capture recipe to upload a photo.");
     }
 
     internal static void ValidateRecipeUri(Uri recipeUri)

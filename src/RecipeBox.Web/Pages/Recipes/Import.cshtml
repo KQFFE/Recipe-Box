@@ -8,7 +8,7 @@
     <a asp-page="Index" class="text-decoration-none">&larr; My recipes</a>
     <h1 class="mt-2">Import from a website</h1>
     <p class="text-secondary">
-        Paste a public recipe page URL. Recipe Box reads structured recipe data and lets you review it before saving.
+        Paste a public recipe page URL. Recipe Box looks for recipe data or visible ingredient and instruction sections, then lets you review the result before saving.
     </p>
 
     <form method="post" asp-page-handler="Import" class="border rounded-3 p-3 mb-4">
@@ -16,7 +16,7 @@
         <label asp-for="RecipeUrl" class="form-label"></label>
         <input asp-for="RecipeUrl" class="form-control" type="url" inputmode="url" autocomplete="url" />
         <span asp-validation-for="RecipeUrl" class="text-danger"></span>
-        <div class="form-text">HTTP or HTTPS pages with Schema.org Recipe data are supported; maximum page size is 2 MB.</div>
+        <div class="form-text">HTTP or HTTPS pages with recipe data or clearly labeled ingredient and instruction sections are supported; maximum page size is 2 MB.</div>
         <button type="submit" class="btn btn-primary mt-3">Find recipe</button>
     </form>
 

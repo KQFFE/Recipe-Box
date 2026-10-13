@@ -146,6 +146,83 @@ public sealed class RecipeUrlImporterTests
     }
 
     [Fact]
+    public async Task Importer_UsesVisibleRecipeSectionsWhenStructuredDataIsMissing()
+    {
+        const string html = """
+            <!doctype html>
+            <html>
+            <head>
+              <title>Tomato soup recipe</title>
+              <meta name="description" content="A comforting homemade soup.">
+              <meta property="og:image" content="/images/tomato-soup.jpg">
+            </head>
+            <body>
+              <nav>Home | Recipes | Print</nav>
+              <main>
+                <h1>Tomato soup</h1>
+                <p>This text introduces the recipe.</p>
+                <h2>Ingredients (serves 4)</h2>
+                <ul><li>4 tomatoes</li><li>1 onion</li></ul>
+                <h2>Instructions</h2>
+                <ol><li>Roast the vegetables.</li><li>Blend until smooth.</li></ol>
+              </main>
+              <footer>Subscribe for more recipes</footer>
+            </body>
+            </html>
+            """;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(html)
+            };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+            return response;
+        });
+        var importer = new RecipeUrlImporter(new HttpClient(handler));
+
+        var draft = await importer.ImportAsync(
+            new Uri("https://recipes.example.test/tomato-soup"),
+            CancellationToken.None);
+
+        Assert.Equal("Tomato soup", draft.Title);
+        Assert.Equal("A comforting homemade soup.", draft.Description);
+        Assert.Equal($"4 tomatoes{Environment.NewLine}1 onion", draft.Ingredients);
+        Assert.Equal($"Roast the vegetables.{Environment.NewLine}Blend until smooth.", draft.Instructions);
+        Assert.Equal("https://recipes.example.test/images/tomato-soup.jpg", draft.ImageUrl);
+    }
+
+    [Fact]
+    public async Task Importer_UsesVisiblePageLanguageForFallbackRecipe()
+    {
+        const string html = """
+            <html><body>
+              <h1>Äppelkaka</h1>
+              <h2>Ingredienser</h2><ul><li>2 ägg</li></ul>
+              <h2>Gör så här</h2><ol><li>Blanda väl.</li></ol>
+            </body></html>
+            """;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(html)
+            };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+            return response;
+        });
+        var importer = new RecipeUrlImporter(new HttpClient(handler));
+
+        var draft = await importer.ImportAsync(
+            new Uri("https://recipes.example.test/apple-cake"),
+            CancellationToken.None);
+
+        Assert.Equal("sv", draft.LanguageCode);
+        Assert.Equal("2 ägg", draft.Ingredients);
+        Assert.Equal("Blanda väl.", draft.Instructions);
+    }
+
+    [Fact]
     public async Task Importer_RejectsNonHtmlResponses()
     {
         var handler = new StubHttpMessageHandler(_ =>
