@@ -50,7 +50,7 @@ dotnet restore RecipeManager.slnx
 dotnet run --project src\RecipeManager.Web\RecipeManager.Web.csproj
 ```
 
-Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeManager.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`; the database file is local development data and is ignored by Git.
+Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeManager.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`, which stores local account and recipe data in `src\RecipeManager.Web\app.db` when run from the repository root. The database is local-only and ignored by Git; it is not copied into build or publish output. Do not commit or upload database files because they contain account and recipe data.
 
 In Development, the app applies pending EF Core migrations at startup. Do not rely on automatic startup migrations for production deployments; apply reviewed migrations through a deliberate deployment step instead.
 
