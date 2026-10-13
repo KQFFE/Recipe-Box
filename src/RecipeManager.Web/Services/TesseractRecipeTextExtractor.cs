@@ -15,14 +15,16 @@ public sealed class TesseractRecipeTextExtractor(string tessdataPath) : IRecipeT
             throw new ArgumentException("The image must not be empty.", nameof(imageBytes));
         }
 
-        var englishDataPath = Path.Combine(tessdataPath, "eng.traineddata");
-        if (!File.Exists(englishDataPath))
+        var missingModels = new[] { "eng.traineddata", "swe.traineddata" }
+            .Where(model => !File.Exists(Path.Combine(tessdataPath, model)))
+            .ToArray();
+        if (missingModels.Length > 0)
         {
             throw new InvalidOperationException(
-                $"The English OCR model was not found at '{englishDataPath}'.");
+                $"Required OCR model(s) were not found in '{tessdataPath}': {string.Join(", ", missingModels)}.");
         }
 
-        using var engine = new Engine(tessdataPath, Language.English, EngineMode.Default);
+        using var engine = new Engine(tessdataPath, "eng+swe", EngineMode.Default);
         using var image = Image.LoadFromMemory(imageBytes);
         using var page = engine.Process(image);
 

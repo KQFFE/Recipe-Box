@@ -257,6 +257,63 @@ namespace RecipeManager.Web.Data.Migrations
                     b.ToTable("Recipes");
                 });
 
+            modelBuilder.Entity("RecipeManager.Web.Models.RecipeLayoutPreference", b =>
+                {
+                    b.Property<int>("RecipeId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FullWidthSections")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SectionOrder")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("RecipeId", "OwnerId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("RecipeLayouts");
+                });
+
+            modelBuilder.Entity("RecipeManager.Web.Models.RecipeShare", b =>
+                {
+                    b.Property<int>("RecipeId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("RecipeId", "OwnerId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("RecipeId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("RecipeShares");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -313,6 +370,36 @@ namespace RecipeManager.Web.Data.Migrations
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecipeManager.Web.Models.RecipeLayoutPreference", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipeManager.Web.Models.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecipeManager.Web.Models.RecipeShare", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipeManager.Web.Models.Recipe", null)
+                        .WithOne()
+                        .HasForeignKey("RecipeManager.Web.Models.RecipeShare", "RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

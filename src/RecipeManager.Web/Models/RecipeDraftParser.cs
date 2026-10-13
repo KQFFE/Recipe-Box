@@ -19,22 +19,23 @@ public static class RecipeDraftParser
                 continue;
             }
 
+            var contentLine = RemoveOcrListMarkers(line);
             if (title.Length == 0 && section == RecipeSection.None)
             {
-                title = line;
+                title = contentLine;
                 continue;
             }
 
             switch (section)
             {
                 case RecipeSection.Ingredients:
-                    ingredients.Add(line);
+                    ingredients.Add(contentLine);
                     break;
                 case RecipeSection.Instructions:
-                    instructions.Add(line);
+                    instructions.Add(contentLine);
                     break;
                 default:
-                    ingredients.Add(line);
+                    ingredients.Add(contentLine);
                     break;
             }
         }
@@ -47,20 +48,27 @@ public static class RecipeDraftParser
 
     private static bool TryGetSection(string line, out RecipeSection section)
     {
-        var heading = line.Trim().TrimEnd(':').Trim();
-        if (heading.Equals("ingredients", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("ingredient list", StringComparison.OrdinalIgnoreCase))
+        if (IsSectionHeading(line, "ingredients", "ingredient list", "ingredienser", "ingredienslista"))
         {
             section = RecipeSection.Ingredients;
             return true;
         }
 
-        if (heading.Equals("instructions", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("directions", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("method", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("preparation", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("steps", StringComparison.OrdinalIgnoreCase)
-            || heading.Equals("how to prepare", StringComparison.OrdinalIgnoreCase))
+        if (IsSectionHeading(
+                line,
+                "instructions",
+                "directions",
+                "method",
+                "preparation",
+                "steps",
+                "how to prepare",
+                "instruktioner",
+                "tillagning",
+                "gör så här",
+                "gör såhär",
+                "så här gör du",
+                "så gör du",
+                "tillvägagångssätt"))
         {
             section = RecipeSection.Instructions;
             return true;
@@ -69,6 +77,18 @@ public static class RecipeDraftParser
         section = RecipeSection.None;
         return false;
     }
+
+    private static bool IsSectionHeading(string line, params string[] headings)
+    {
+        var candidate = line.Trim();
+        return headings.Any(heading =>
+            candidate.Equals(heading, StringComparison.OrdinalIgnoreCase)
+            || candidate.Equals($"{heading}:", StringComparison.OrdinalIgnoreCase)
+            || candidate.StartsWith($"{heading}:", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string RemoveOcrListMarkers(string line) =>
+        line.TrimStart().TrimStart('+', '•', '·', '●', '○', '▪', '◦', '©', '✓', '✔', '☑').TrimStart();
 
     private enum RecipeSection
     {

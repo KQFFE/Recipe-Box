@@ -99,7 +99,15 @@ public sealed class RecipePagesEndToEndTests
         using var client = factory.CreateAppClient();
         client.DefaultRequestHeaders.Add("X-Test-Unauthenticated", "true");
 
-        foreach (var path in new[] { "/Recipes", "/Recipes/Create", "/Recipes/Capture", "/Recipes/Import" })
+        foreach (var path in new[]
+                 {
+                     "/Recipes",
+                     "/Recipes/Create",
+                     "/Recipes/Capture",
+                     "/Recipes/Import",
+                     "/Recipes/Layout/1",
+                     "/Recipes/Share/1"
+                 })
         {
             var response = await client.GetAsync(path);
 

@@ -31,6 +31,40 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await page.GetByRole(AriaRole.Button, new() { Name = "Save" }).ClickAsync();
 
         await ExpectHeadingAsync(page, "Browser-tested smoky soup");
+        await page.GetByRole(AriaRole.Link, new() { Name = "Customize layout" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Move How to prepare up" }).ClickAsync();
+        await page.Locator("li")
+            .Filter(new() { HasText = "How to prepare" })
+            .GetByLabel("Full width")
+            .CheckAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Save layout" }).ClickAsync();
+
+        var sectionOrder = await page.Locator("[data-layout-section]")
+            .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
+        Assert.Equal(new[] { "description", "instructions", "ingredients" }, sectionOrder);
+        var instructionClasses = await page.Locator("#recipe-section-instructions").GetAttributeAsync("class");
+        Assert.Contains("recipe-layout-panel-full", instructionClasses);
+
+        await page.GetByRole(AriaRole.Link, new() { Name = "Share" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Create share link" }).ClickAsync();
+        var shareUrl = await page.Locator("#share-link").InputValueAsync();
+        await using (var anonymousContext = await application.CreateContextAsync())
+        {
+            var sharedPage = await anonymousContext.NewPageAsync();
+            await sharedPage.GotoAsync(shareUrl);
+            await ExpectHeadingAsync(sharedPage, "Browser-tested smoky soup");
+            await Assertions.Expect(sharedPage.GetByText("Created in a real browser.")).ToBeVisibleAsync();
+            await Assertions.Expect(sharedPage.GetByRole(AriaRole.Link, new() { Name = "Edit" })).ToHaveCountAsync(0);
+            var sharedSectionOrder = await sharedPage.Locator("[data-layout-section]")
+                .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
+            Assert.Equal(new[] { "description", "instructions", "ingredients" }, sharedSectionOrder);
+
+            await page.GetByRole(AriaRole.Button, new() { Name = "Revoke current link" }).ClickAsync();
+            var revokedResponse = await sharedPage.GotoAsync(shareUrl);
+            Assert.Equal(404, revokedResponse!.Status);
+        }
+
+        await page.GetByRole(AriaRole.Link, new() { Name = "Back to recipe" }).ClickAsync();
         await page.GetByRole(AriaRole.Link, new() { Name = "Delete" }).ClickAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Delete recipe" }).ClickAsync();
 

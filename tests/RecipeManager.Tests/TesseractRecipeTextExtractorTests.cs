@@ -16,4 +16,23 @@ public sealed class TesseractRecipeTextExtractorTests
         Assert.Contains("This is a lot of 12 point text to test the", result);
         Assert.Contains("The quick brown dog jumped over the", result);
     }
+
+    [Fact]
+    public void ExtractText_RequiresEnglishAndSwedishModels()
+    {
+        var tessdataPath = Path.Combine(Path.GetTempPath(), $"recipe-ocr-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tessdataPath);
+        try
+        {
+            var extractor = new TesseractRecipeTextExtractor(tessdataPath);
+            var error = Assert.Throws<InvalidOperationException>(() => extractor.ExtractText([1]));
+
+            Assert.Contains("eng.traineddata", error.Message);
+            Assert.Contains("swe.traineddata", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(tessdataPath);
+        }
+    }
 }

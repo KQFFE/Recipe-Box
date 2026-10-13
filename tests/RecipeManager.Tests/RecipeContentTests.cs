@@ -51,6 +51,17 @@ public sealed class RecipeContentTests
     }
 
     [Fact]
+    public void RecipeDraftParser_RecognizesSwedishHeadingsAndCleansOcrListMarkers()
+    {
+        var draft = RecipeDraftParser.Parse(
+            "Äppelkaka\nIngredienser: © Skriv ut\n+ 3 st ägg\n© Laktosfritt\nGör så här:\n• Blanda ingredienserna.");
+
+        Assert.Equal("Äppelkaka", draft.Title);
+        Assert.Equal($"3 st ägg{Environment.NewLine}Laktosfritt", draft.Ingredients);
+        Assert.Equal("Blanda ingredienserna.", draft.Instructions);
+    }
+
+    [Fact]
     public void RecipeFormModel_RejectsContentWithoutIngredientsOrInstructions()
     {
         var model = new RecipeFormModel
