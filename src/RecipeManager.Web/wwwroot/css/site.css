@@ -58,8 +58,28 @@ body {
 }
 
 .layout-editor-preview [data-layout-section] {
+  position: relative;
   min-width: 0;
   cursor: grab;
+}
+
+.layout-drop-indicator {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+  place-items: center;
+  border: 3px dashed var(--bs-primary);
+  border-radius: var(--bs-border-radius);
+  background: color-mix(in srgb, var(--bs-primary) 16%, var(--bs-body-bg) 84%);
+  color: var(--bs-primary-text-emphasis);
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.layout-editor-preview [data-layout-section].layout-drop-target .layout-drop-indicator {
+  display: grid;
 }
 
 .layout-section-toolbar {

@@ -7,11 +7,24 @@ if (layoutPreview) {
   let draggedSectionKey;
   let touchDraggedSectionKey;
   let touchPointerId;
+  let activeDropTarget;
 
   const previewSections = () =>
     Array.from(layoutPreview.querySelectorAll("[data-layout-section]"));
 
-  const moveSection = (key, targetKey, insertAfter) => {
+  const setDropTarget = (section) => {
+    if (activeDropTarget === section) {
+      return;
+    }
+
+    activeDropTarget?.classList.remove("layout-drop-target");
+    activeDropTarget = section;
+    activeDropTarget?.classList.add("layout-drop-target");
+  };
+
+  const clearDropTarget = () => setDropTarget(undefined);
+
+  const moveSection = (key, targetKey) => {
     const sourceSection = layoutPreview.querySelector(`[data-layout-section="${key}"]`);
     const targetSection = layoutPreview.querySelector(`[data-layout-section="${targetKey}"]`);
 
@@ -24,10 +37,10 @@ if (layoutPreview) {
       return;
     }
 
-    sourceSection.parentNode.insertBefore(
-      sourceSection,
-      insertAfter ? targetSection.nextSibling : targetSection
-    );
+    const sourceMarker = document.createComment("section swap");
+    sourceSection.parentNode.insertBefore(sourceMarker, sourceSection);
+    targetSection.parentNode.insertBefore(sourceSection, targetSection);
+    sourceMarker.parentNode.replaceChild(targetSection, sourceMarker);
     updateMoveButtons();
   };
 
@@ -56,8 +69,7 @@ if (layoutPreview) {
 
     moveSection(
       section.dataset.layoutSection,
-      targetSection.dataset.layoutSection,
-      button.dataset.layoutMove === "down"
+      targetSection.dataset.layoutSection
     );
   });
 
@@ -76,18 +88,13 @@ if (layoutPreview) {
     }
 
     if (shouldDrop && touchDraggedSectionKey) {
-      const target = document.elementFromPoint(event.clientX, event.clientY)
-        ?.closest("[data-layout-section]");
-      if (target) {
-        const bounds = target.getBoundingClientRect();
-        moveSection(
-          touchDraggedSectionKey,
-          target.dataset.layoutSection,
-          event.clientY >= bounds.top + bounds.height / 2
-        );
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-layout-section]");
+      if (target && target.dataset.layoutSection !== touchDraggedSectionKey) {
+        moveSection(touchDraggedSectionKey, target.dataset.layoutSection);
       }
     }
 
+    clearDropTarget();
     previewSections().forEach((section) => section.classList.remove("layout-section-dragging"));
     touchDraggedSectionKey = undefined;
     touchPointerId = undefined;
@@ -99,6 +106,8 @@ if (layoutPreview) {
   const onTouchPointerMove = (event) => {
     if (event.pointerId === touchPointerId) {
       event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-layout-section]");
+      setDropTarget(target?.dataset.layoutSection === touchDraggedSectionKey ? undefined : target);
     }
   };
 
@@ -117,6 +126,7 @@ if (layoutPreview) {
     layoutPreview
       .querySelector(`[data-layout-section="${touchDraggedSectionKey}"]`)
       .classList.add("layout-section-dragging");
+    setDropTarget(undefined);
     window.addEventListener("pointermove", onTouchPointerMove, { passive: false });
     window.addEventListener("pointerup", onTouchPointerUp);
     window.addEventListener("pointercancel", onTouchPointerCancel);
@@ -137,11 +147,20 @@ if (layoutPreview) {
   layoutPreview.addEventListener("dragover", (event) => {
     const target = event.target.closest("[data-layout-section]");
     if (!target || target.dataset.layoutSection === draggedSectionKey) {
+      setDropTarget(undefined);
       return;
     }
 
     event.preventDefault();
+    setDropTarget(target);
     event.dataTransfer.dropEffect = "move";
+  });
+
+  layoutPreview.addEventListener("dragleave", (event) => {
+    const section = event.target.closest("[data-layout-section]");
+    if (section && !section.contains(event.relatedTarget)) {
+      setDropTarget(undefined);
+    }
   });
 
   layoutPreview.addEventListener("drop", (event) => {
@@ -152,11 +171,12 @@ if (layoutPreview) {
     }
 
     event.preventDefault();
-    const bounds = target.getBoundingClientRect();
-    moveSection(key, target.dataset.layoutSection, event.clientY >= bounds.top + bounds.height / 2);
+    moveSection(key, target.dataset.layoutSection);
+    clearDropTarget();
   });
 
   layoutPreview.addEventListener("dragend", () => {
+    clearDropTarget();
     previewSections().forEach((section) => section.classList.remove("layout-section-dragging"));
     draggedSectionKey = undefined;
   });

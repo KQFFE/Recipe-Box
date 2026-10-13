@@ -54,7 +54,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await layoutPreview.Locator("#recipe-section-description")
             .DragToAsync(
                 layoutPreview.Locator("#recipe-section-image"),
-                new() { TargetPosition = new TargetPosition { X = 10, Y = imageBounds.Height - 2 } });
+                new() { TargetPosition = new TargetPosition { X = 10, Y = imageBounds.Height / 2 } });
         var previewOrder = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
         Assert.Equal(new[] { "image", "description", "instructions", "ingredients" }, previewOrder);
@@ -78,23 +78,36 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             """
             () => {
                 const handle = document.querySelector("[data-layout-drag-handle='ingredients']");
-                const rect = document.querySelector("#recipe-section-description").getBoundingClientRect();
+                const target = document.querySelector("#recipe-section-image");
+                const rect = target.getBoundingClientRect();
                 const pointer = (type, x, y) => new PointerEvent(type, {
                     bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX: x, clientY: y
                 });
-                handle.dispatchEvent(pointer("pointerdown", 20, 20));
-                window.dispatchEvent(pointer("pointermove", rect.left + 10, rect.top + rect.height - 2));
-                window.dispatchEvent(pointer("pointerup", rect.left + 10, rect.top + rect.height - 2));
+                handle.dispatchEvent(pointer("pointerdown", rect.left + 20, rect.top + 20));
+                window.dispatchEvent(pointer("pointermove", rect.left + 20, rect.top + 20));
+            }
+            """);
+        await Assertions.Expect(
+            layoutPreview.Locator("#recipe-section-image").GetByText("Put here"))
+            .ToBeVisibleAsync();
+        await page.EvaluateAsync(
+            """
+            () => {
+                const rect = document.querySelector("#recipe-section-image").getBoundingClientRect();
+                const pointer = (type, x, y) => new PointerEvent(type, {
+                    bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX: x, clientY: y
+                });
+                window.dispatchEvent(pointer("pointerup", rect.left + 20, rect.top + 20));
             }
             """);
         var mobileOrder = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
-        Assert.Equal(new[] { "image", "description", "ingredients", "instructions" }, mobileOrder);
+        Assert.Equal(new[] { "ingredients", "description", "instructions", "image" }, mobileOrder);
         await page.GetByRole(AriaRole.Button, new() { Name = "Save layout" }).ClickAsync();
 
         var sectionOrder = await page.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
-        Assert.Equal(new[] { "image", "description", "ingredients", "instructions" }, sectionOrder);
+        Assert.Equal(new[] { "ingredients", "description", "instructions", "image" }, sectionOrder);
         var instructionClasses = await page.Locator("#recipe-section-instructions").GetAttributeAsync("class");
         Assert.Contains("recipe-layout-panel-full", instructionClasses);
 
@@ -115,7 +128,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             Assert.Equal(200, sharedImageStatus);
             var sharedSectionOrder = await sharedPage.Locator("[data-layout-section]")
                 .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
-            Assert.Equal(new[] { "image", "description", "ingredients", "instructions" }, sharedSectionOrder);
+            Assert.Equal(new[] { "ingredients", "description", "instructions", "image" }, sharedSectionOrder);
 
             await page.GetByRole(AriaRole.Button, new() { Name = "Revoke current link" }).ClickAsync();
             var revokedResponse = await sharedPage.GotoAsync(shareUrl);

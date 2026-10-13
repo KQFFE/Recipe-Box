@@ -11,6 +11,7 @@
                  aria-labelledby="heading-@layoutSection.Key">
             @if (Model.IsLayoutEditor)
             {
+                <div class="layout-drop-indicator" aria-hidden="true">Put here</div>
                 <div class="layout-section-toolbar" role="group" aria-label="@layoutSection.Label layout controls">
                     <input type="hidden" name="SectionOrder" value="@layoutSection.Key" />
                     <span class="layout-section-drag-handle" data-layout-drag-handle="@layoutSection.Key"
