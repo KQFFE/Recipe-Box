@@ -2,7 +2,7 @@
 
 Recipe Box is the starting point for a personal recipe-capturing and management app. The first release is a responsive ASP.NET Core web app: signed-in users can keep their own recipes, with ingredients and preparation steps stored separately.
 
-The project is intentionally growing through small, testable workflows. Recipe photo OCR and review-before-save are implemented. Recipe website import, custom layouts, sharing, and recipe-image storage are future work.
+The project is intentionally growing through small, testable workflows. Recipe photo OCR and review-before-save are implemented, as is recipe website import with a review-before-save step. Custom layouts, sharing, and recipe-image storage are future work.
 
 ## What works today
 
@@ -15,9 +15,11 @@ The project is intentionally growing through small, testable workflows. Recipe p
 - Capture a recipe photo from a phone or choose an image file; English OCR extracts a draft for review before saving.
 - OCR runs locally with Tesseract. Uploaded photos are processed in memory and are not retained; only the user-reviewed recipe text is saved.
 - Photo uploads accept JPEG, PNG, or WebP images up to 10 MB.
+- Import a public recipe page URL; Schema.org Recipe JSON-LD fields (title, description, image URL, ingredients, and steps) are extracted into an editable review form.
+- URL import accepts HTTP/HTTPS pages up to 2 MB, uses a 15-second request timeout, limits redirects, and blocks connections to non-public IP ranges. Pages without supported structured recipe data show an actionable error instead of being saved.
 - SQLite persistence and Entity Framework Core migrations.
-- Unit tests for recipe text normalization, draft parsing, form validation, and upload validation; an OCR test exercises the real local engine.
-- HTTP-level tests for CRUD, invalid submissions, photo capture/review/save, authentication, and account ownership.
+- Unit tests for recipe text normalization, draft parsing, form validation, upload validation, structured recipe parsing, and public IP ranges; an OCR test exercises the real local engine.
+- HTTP-level tests for CRUD, invalid submissions, photo and URL import review/save, authentication, and account ownership.
 - Responsive page layout for desktop and phone browsers.
 
 The app uses the standard ASP.NET Core Identity UI. Account confirmation is required by the current Identity configuration; configure and verify an email sender before relying on real account registration and confirmation flows.
@@ -92,7 +94,7 @@ Build without running tests:
 dotnet build RecipeManager.slnx
 ```
 
-`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, a fake OCR boundary, and an isolated temporary SQLite database to exercise HTTP page requests, invalid submissions, photo capture/review/save, authentication, and owner isolation (including cross-account delete attempts). The test authentication handler and fake extractor are test-only; neither is registered by the web app. These are HTTP-level end-to-end tests, not real-browser Playwright tests.
+`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, invalid submissions, photo and URL capture/review/save, authentication, and owner isolation (including cross-account delete attempts). The test authentication handler and fake extractors are test-only; neither is registered by the web app. These are HTTP-level end-to-end tests, not real-browser Playwright tests.
 
 ## Project structure
 
@@ -103,9 +105,9 @@ src/
     Areas/Identity/       ASP.NET Core Identity UI integration
     Data/                 EF Core DbContext and database migrations
     Models/               Persisted recipe model and shared recipe-content helpers
-    Services/             OCR extraction boundary and upload validation
+    Services/             OCR and URL import boundaries, public-address checks, and upload validation
     Pages/
-      Recipes/            Recipe list, details, capture/review, create, edit, and delete pages
+      Recipes/            Recipe list, details, capture/import review, create, edit, and delete pages
       Shared/             Shared page layout and navigation
     wwwroot/               Static CSS, JavaScript, and browser libraries
     tessdata/              Pinned OCR language model and license
@@ -121,6 +123,7 @@ dotnet-tools.json         Pinned local development tools
 
 - **Recipe persistence fields and shared recipe data rules:** `Models/`, with database configuration in `Data/ApplicationDbContext.cs`; add a migration when the schema changes.
 - **Recipe capture and OCR:** `Pages/Recipes/Capture.*` for the authenticated review-before-save flow, `Services/IRecipeTextExtractor.cs` for the replaceable OCR boundary, and `Models/RecipeDraftParser.cs` for the testable English section-heading heuristic.
+- **Recipe website import:** `Pages/Recipes/Import.*` for the authenticated review-before-save flow, `Services/IRecipeUrlImporter.cs` for the replaceable website boundary, `Services/RecipeUrlImporter.cs` for bounded HTML retrieval, and `Models/RecipeStructuredDataParser.cs` for Schema.org JSON-LD extraction. The importer fetches remote pages, so retain the URL, size, redirect, timeout, and public-address checks if changing its implementation.
 - **Upload constraints:** `Services/RecipeImageUpload.cs`; keep file-size and format checks at the upload boundary.
 - **A recipe screen or page-specific form model:** `Pages/Recipes/`, keeping the `.cshtml` view beside its Razor Page model.
 - **Shared navigation or page chrome:** `Pages/Shared/`.
@@ -133,13 +136,12 @@ Keep recipes scoped to the authenticated Identity user. Page handlers should que
 
 ## Scope and next increments
 
-Recipe photos are OCR'd locally into an editable draft; no photo file or unreviewed OCR output is persisted. The recipe form validates required content and image URL schemes, and tests cover invalid create/edit submissions and cross-account read/delete boundaries. Real-browser tests remain future work. The near-term goal is to grow the app in independent, testable vertical slices:
+Recipe photos are OCR'd locally into an editable draft; no photo file or unreviewed OCR output is persisted. Website import reads Schema.org Recipe JSON-LD and extracts the page's declared image URL; it does not download or store image files or preserve the source URL as recipe metadata. In both workflows, users review and can correct all extracted recipe fields before saving. The recipe form validates required content and image URL schemes, and tests cover invalid create/edit/import submissions and cross-account read/delete boundaries. Real-browser tests remain future work. The near-term goal is to grow the app in independent, testable vertical slices:
 
-1. Add real-browser tests for the important recipe and photo-capture journeys.
-2. Add recipe URL import with structured extraction, clear error states, and a review step.
-3. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
-4. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
-5. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
+1. Add real-browser tests for the important recipe, photo-capture, and URL-import journeys.
+2. Add flexible layouts as saved presentation preferences separate from the recipe's ingredients and instructions.
+3. Add controlled recipe sharing, with explicit decisions about what is shared and whether the recipient can edit.
+4. Add optional recipe-image storage or image selection/generation behind replaceable boundaries, after deciding privacy, licensing, attribution, and cost requirements.
 
 Each increment should include unit tests for its rules, HTTP or integration tests for persistence and account boundaries, and browser-level end-to-end coverage for its main user journey.
 

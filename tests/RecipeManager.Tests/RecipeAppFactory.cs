@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RecipeManager.Web.Data;
+using RecipeManager.Web.Models;
 using RecipeManager.Web.Services;
 
 namespace RecipeManager.Tests;
@@ -21,6 +22,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
     public const string TestUserId = "recipe-test-user";
 
     public TestRecipeTextExtractor TextExtractor { get; } = new();
+
+    public TestRecipeUrlImporter UrlImporter { get; } = new();
 
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
@@ -41,6 +44,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString));
             services.RemoveAll<IRecipeTextExtractor>();
             services.AddSingleton<IRecipeTextExtractor>(TextExtractor);
+            services.RemoveAll<IRecipeUrlImporter>();
+            services.AddSingleton<IRecipeUrlImporter>(UrlImporter);
 
             services
                 .AddAuthentication(options =>
@@ -107,6 +112,34 @@ public sealed class TestRecipeTextExtractor : IRecipeTextExtractor
         CallCount++;
         LastImageLength = imageBytes.Length;
         return Text;
+    }
+}
+
+public sealed class TestRecipeUrlImporter : IRecipeUrlImporter
+{
+    public RecipeDraft Draft { get; set; } = new(
+        "Tomato soup",
+        "4 tomatoes\n1 onion",
+        "Roast the vegetables.\nBlend until smooth.",
+        "A simple soup.",
+        "https://recipes.example.test/tomato-soup.jpg");
+
+    public Exception? Failure { get; set; }
+
+    public int CallCount { get; private set; }
+
+    public Uri? LastUri { get; private set; }
+
+    public Task<RecipeDraft> ImportAsync(Uri recipeUri, CancellationToken cancellationToken)
+    {
+        CallCount++;
+        LastUri = recipeUri;
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
+
+        return Task.FromResult(Draft);
     }
 }
 

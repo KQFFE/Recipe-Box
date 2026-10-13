@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RecipeManager.Web.Data;
 using RecipeManager.Web.Services;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,16 @@ builder.Services.AddScoped<IRecipeTextExtractor>(services =>
     var tessdataPath = Path.Combine(environment.ContentRootPath, "tessdata");
     return new TesseractRecipeTextExtractor(tessdataPath);
 });
+builder.Services.AddHttpClient<IRecipeUrlImporter, RecipeUrlImporter>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = true,
+        AutomaticDecompression = DecompressionMethods.All,
+        ConnectCallback = RecipeUrlImporter.ConnectToPublicAddressAsync,
+        MaxAutomaticRedirections = 3,
+        UseProxy = false
+    });
 
 var app = builder.Build();
 

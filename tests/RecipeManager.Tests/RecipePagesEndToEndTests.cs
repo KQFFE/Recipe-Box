@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RecipeManager.Web.Data;
 using RecipeManager.Web.Models;
+using RecipeManager.Web.Services;
 
 namespace RecipeManager.Tests;
 
@@ -98,7 +99,7 @@ public sealed class RecipePagesEndToEndTests
         using var client = factory.CreateAppClient();
         client.DefaultRequestHeaders.Add("X-Test-Unauthenticated", "true");
 
-        foreach (var path in new[] { "/Recipes", "/Recipes/Create", "/Recipes/Capture" })
+        foreach (var path in new[] { "/Recipes", "/Recipes/Create", "/Recipes/Capture", "/Recipes/Import" })
         {
             var response = await client.GetAsync(path);
 
@@ -206,6 +207,97 @@ public sealed class RecipePagesEndToEndTests
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Empty(await db.Recipes.Where(recipe => recipe.OwnerId == RecipeAppFactory.TestUserId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ImportPage_ReviewsAndSavesUserConfirmedRecipe()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var importPage = await client.GetAsync("/Recipes/Import");
+        var token = ExtractAntiforgeryToken(await importPage.Content.ReadAsStringAsync());
+
+        var importResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string>
+            {
+                ["RecipeUrl"] = "https://recipes.example.test/tomato-soup"
+            }));
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        var reviewHtml = await importResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Review the imported recipe", reviewHtml);
+        Assert.Contains("value=\"Tomato soup\"", reviewHtml);
+        Assert.Contains("4 tomatoes", reviewHtml);
+        Assert.Contains("A simple soup.", reviewHtml);
+        Assert.Contains("https://recipes.example.test/tomato-soup.jpg", reviewHtml);
+        Assert.Equal(1, factory.UrlImporter.CallCount);
+        Assert.Equal("https://recipes.example.test/tomato-soup", factory.UrlImporter.LastUri?.AbsoluteUri);
+
+        var reviewToken = ExtractAntiforgeryToken(reviewHtml);
+        var saveResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Save",
+            Form(reviewToken, new Dictionary<string, string>
+            {
+                ["Input.Title"] = "My corrected tomato soup",
+                ["Input.Description"] = "Corrected description.",
+                ["Input.ImageUrl"] = "https://recipes.example.test/tomato-soup.jpg",
+                ["Input.Ingredients"] = "5 tomatoes\n1 onion",
+                ["Input.Instructions"] = "Roast the vegetables.\nBlend until smooth."
+            }));
+
+        Assert.Equal(HttpStatusCode.Redirect, saveResponse.StatusCode);
+        var details = await client.GetStringAsync(saveResponse.Headers.Location!.OriginalString);
+        Assert.Contains("My corrected tomato soup", details);
+        Assert.Contains("5 tomatoes", details);
+        Assert.Contains("Corrected description.", details);
+    }
+
+    [Theory]
+    [InlineData("file:///etc/passwd")]
+    [InlineData("http://127.0.0.1/secret")]
+    [InlineData("ftp://recipes.example.test/soup")]
+    public async Task ImportPage_RejectsUnsupportedOrPrivateAddresses(string recipeUrl)
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var importPage = await client.GetAsync("/Recipes/Import");
+        var token = ExtractAntiforgeryToken(await importPage.Content.ReadAsStringAsync());
+
+        var response = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string> { ["RecipeUrl"] = recipeUrl }));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(
+            "valid public HTTP or HTTPS recipe page URL",
+            VisibleText(await response.Content.ReadAsStringAsync()),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, factory.UrlImporter.CallCount);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Empty(await db.Recipes.Where(recipe => recipe.OwnerId == RecipeAppFactory.TestUserId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ImportPage_ShowsClearMessageWhenWebsiteHasNoRecipeData()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        factory.UrlImporter.Failure = new RecipeImportException("No supported recipe data was found.");
+        var importPage = await client.GetAsync("/Recipes/Import");
+        var token = ExtractAntiforgeryToken(await importPage.Content.ReadAsStringAsync());
+
+        var response = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string>
+            {
+                ["RecipeUrl"] = "https://recipes.example.test/not-a-recipe"
+            }));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("No supported recipe data was found.", VisibleText(await response.Content.ReadAsStringAsync()));
+        Assert.Equal(1, factory.UrlImporter.CallCount);
     }
 
     [Fact]
