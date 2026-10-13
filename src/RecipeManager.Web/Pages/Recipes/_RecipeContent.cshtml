@@ -37,7 +37,47 @@
                         Move down
                     </button>
                 </div>
+                <div class="layout-section-overview">
+                    @switch (layoutSection.Key)
+                    {
+                        case RecipeLayoutDefinition.Description:
+                        <p class="layout-section-summary">@Model.Recipe.Description</p>
+                        break;
+                        case RecipeLayoutDefinition.Image:
+                        <img src="@Model.ImageSource" class="layout-section-thumbnail" alt="" />
+                        break;
+                        case RecipeLayoutDefinition.Ingredients:
+                        <ul class="layout-section-summary-list">
+                            @foreach (var ingredient in Model.Ingredients.Take(2))
+                            {
+                                <li>@ingredient</li>
+                            }
+                        </ul>
+                        @if (Model.Ingredients.Count > 2)
+                        {
+                            <span class="text-secondary">+ @(Model.Ingredients.Count - 2) more</span>
+                        }
+                        break;
+                        case RecipeLayoutDefinition.Instructions:
+                        <p class="layout-section-summary">
+                            @Model.Instructions.FirstOrDefault()
+                            @if (Model.Instructions.Count > 1)
+                            {
+                                <span class="text-secondary">+ @(Model.Instructions.Count - 1) more steps</span>
+                            }
+                        </p>
+                        break;
+                    }
+                    <button type="button" class="btn btn-sm btn-link p-0"
+                        data-layout-expand aria-expanded="false"
+                        data-layout-label="@layoutSection.Label"
+                        aria-label="View full @layoutSection.Label">
+                        View details
+                    </button>
+                </div>
             }
+            <div class="@(Model.IsLayoutEditor ? "layout-section-details" : null)"
+                 hidden="@Model.IsLayoutEditor">
             @switch (layoutSection.Key)
             {
                 case RecipeLayoutDefinition.Description:
@@ -67,6 +107,7 @@
                     </ol>
                     break;
             }
+            </div>
         </section>
     }
 </div>

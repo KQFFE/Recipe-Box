@@ -38,15 +38,15 @@ if (layoutPreview) {
       return;
     }
 
-    const edgeSize = Math.min(180, window.innerHeight * 0.24);
+    const edgeSize = Math.min(220, window.innerHeight * 0.32);
     const distanceFromTop = touchPointerY;
     const distanceFromBottom = window.innerHeight - touchPointerY;
     if (distanceFromTop < edgeSize) {
       const intensity = 1 - Math.max(0, distanceFromTop) / edgeSize;
-      window.scrollBy(0, -Math.ceil(8 + intensity ** 2 * 72));
+      window.scrollBy(0, -Math.ceil(16 + intensity ** 2 * 384));
     } else if (distanceFromBottom < edgeSize) {
       const intensity = 1 - Math.max(0, distanceFromBottom) / edgeSize;
-      window.scrollBy(0, Math.ceil(8 + intensity ** 2 * 72));
+      window.scrollBy(0, Math.ceil(16 + intensity ** 2 * 384));
     }
 
     updateTouchDropTarget();
@@ -82,6 +82,21 @@ if (layoutPreview) {
   };
 
   layoutPreview.addEventListener("click", (event) => {
+    const expandButton = event.target.closest("[data-layout-expand]");
+    if (expandButton) {
+      const section = expandButton.closest("[data-layout-section]");
+      const details = section.querySelector(".layout-section-details");
+      const isExpanded = expandButton.getAttribute("aria-expanded") === "true";
+      expandButton.setAttribute("aria-expanded", String(!isExpanded));
+      expandButton.textContent = isExpanded ? "View details" : "Hide details";
+      expandButton.setAttribute(
+        "aria-label",
+        `${isExpanded ? "View full" : "Hide full"} ${expandButton.dataset.layoutLabel}`
+      );
+      details.hidden = isExpanded;
+      return;
+    }
+
     const button = event.target.closest("[data-layout-move]");
     if (!button) {
       return;

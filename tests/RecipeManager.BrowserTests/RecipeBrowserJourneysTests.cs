@@ -44,7 +44,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await ExpectHeadingAsync(page, "Browser-tested smoky soup");
         await page.GetByRole(AriaRole.Link, new() { Name = "Customize layout" }).ClickAsync();
         var layoutPreview = page.Locator(".layout-editor-preview");
-        await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.")).ToBeVisibleAsync();
+        await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.").First).ToBeVisibleAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Move How to prepare up" }).ClickAsync();
         var accessibleMoveOrder = await layoutPreview.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
@@ -65,6 +65,28 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             .Locator("#recipe-section-instructions")
             .GetAttributeAsync("class");
         Assert.Contains("recipe-layout-panel-full", previewInstructionClasses);
+
+        await page.SetViewportSizeAsync(1920, 1080);
+        var desktopSectionsVisible = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<bool[]>("sections => sections.map(section => section.getBoundingClientRect().bottom <= innerHeight)");
+        Assert.All(desktopSectionsVisible, Assert.True);
+        await page.SetViewportSizeAsync(375, 667);
+        var mobileSectionBounds = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<string[]>("sections => sections.map(section => `${section.dataset.layoutSection}: ${Math.round(section.getBoundingClientRect().top)}-${Math.round(section.getBoundingClientRect().bottom)}`)");
+        var mobileSectionsFit = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<bool[]>("sections => sections.map(section => section.getBoundingClientRect().bottom <= innerHeight)");
+        var mobileCardParts = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<string[]>("sections => sections.map(section => `${section.dataset.layoutSection} column=${getComputedStyle(section).gridColumn} children: ${[...section.children].map(child => `${child.className || child.tagName}=${Math.round(child.getBoundingClientRect().height)}`).join(', ')}`)");
+        Assert.True(
+            mobileSectionsFit.All(fits => fits),
+            $"Sections should fit in the iPhone 8 viewport: {string.Join(", ", mobileSectionBounds)}. {string.Join("; ", mobileCardParts)}");
+        await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }))
+            .ToBeVisibleAsync();
+        await layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }).ClickAsync();
+        await Assertions.Expect(layoutPreview.GetByText("1 onion").Last).ToBeVisibleAsync();
+        await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Button, new() { Name = "Hide full Ingredients" }))
+            .ToBeVisibleAsync();
+        await layoutPreview.GetByRole(AriaRole.Button, new() { Name = "Hide full Ingredients" }).ClickAsync();
 
         await page.SetViewportSizeAsync(320, 700);
         var editorBounds = await page.Locator(".layout-editor-page").BoundingBoxAsync();
@@ -93,11 +115,11 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
                 window.dispatchEvent(pointer("pointermove", 100, window.innerHeight - 2));
             }
             """);
-        await page.WaitForTimeoutAsync(400);
+        await page.WaitForTimeoutAsync(250);
         var scrollDistanceRequested = await page.EvaluateAsync<int>("() => window.layoutRequestedScroll");
         Assert.True(
-            scrollDistanceRequested >= 500,
-            $"Holding a section at the viewport edge should scroll quickly; requested {scrollDistanceRequested}px in 400ms.");
+            scrollDistanceRequested >= 2000,
+            $"Holding a section at the viewport edge should scroll quickly; requested {scrollDistanceRequested}px in 250ms.");
         await page.EvaluateAsync(
             """
             () => {
