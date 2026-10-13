@@ -90,6 +90,16 @@ Run all tests from the repository root:
 dotnet test RecipeManager.slnx
 ```
 
+The standard command builds into the projects' normal `bin` folders. On Windows, if the development web app is already running from that build output, it holds `RecipeManager.Web.exe` open and prevents the build from replacing it. The resulting `MSB3026` retry warnings followed by `MSB3027`/`MSB3021` copy errors indicate this file lock; they are not test assertion failures. Stop the app with `Ctrl+C` in its terminal (or stop debugging), then rerun the standard command.
+
+To keep the app running while testing, use the repository script instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test.ps1
+```
+
+The script builds and runs the full solution test suite with a unique temporary output directory, then removes that directory and returns the test command's exit code. This avoids overwriting the executable currently in use. The script requires PowerShell and the .NET SDK; it does not stop or modify the running app or its database. Use the standard command when the app is stopped.
+
 The solution includes real-browser tests. Install Chromium once after building the browser-test project:
 
 ```powershell
