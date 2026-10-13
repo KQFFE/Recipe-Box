@@ -7,6 +7,9 @@ if (layoutPreview) {
   let draggedSectionKey;
   let touchDraggedSectionKey;
   let touchPointerId;
+  let touchPointerX;
+  let touchPointerY;
+  let touchScrollFrame;
   let activeDropTarget;
 
   const previewSections = () =>
@@ -23,6 +26,32 @@ if (layoutPreview) {
   };
 
   const clearDropTarget = () => setDropTarget(undefined);
+
+  const updateTouchDropTarget = () => {
+    const target = document.elementFromPoint(touchPointerX, touchPointerY)
+      ?.closest("[data-layout-section]");
+    setDropTarget(target?.dataset.layoutSection === touchDraggedSectionKey ? undefined : target);
+  };
+
+  const scrollWhileDragging = () => {
+    if (touchPointerId === undefined) {
+      return;
+    }
+
+    const edgeSize = Math.min(96, window.innerHeight * 0.16);
+    const distanceFromTop = touchPointerY;
+    const distanceFromBottom = window.innerHeight - touchPointerY;
+    if (distanceFromTop < edgeSize) {
+      const intensity = 1 - Math.max(0, distanceFromTop) / edgeSize;
+      window.scrollBy(0, -Math.max(1, Math.ceil(intensity * 18)));
+    } else if (distanceFromBottom < edgeSize) {
+      const intensity = 1 - Math.max(0, distanceFromBottom) / edgeSize;
+      window.scrollBy(0, Math.max(1, Math.ceil(intensity * 18)));
+    }
+
+    updateTouchDropTarget();
+    touchScrollFrame = window.requestAnimationFrame(scrollWhileDragging);
+  };
 
   const moveSection = (key, targetKey) => {
     const sourceSection = layoutPreview.querySelector(`[data-layout-section="${key}"]`);
@@ -96,6 +125,10 @@ if (layoutPreview) {
 
     clearDropTarget();
     previewSections().forEach((section) => section.classList.remove("layout-section-dragging"));
+    if (touchScrollFrame !== undefined) {
+      window.cancelAnimationFrame(touchScrollFrame);
+      touchScrollFrame = undefined;
+    }
     touchDraggedSectionKey = undefined;
     touchPointerId = undefined;
     window.removeEventListener("pointermove", onTouchPointerMove);
@@ -106,8 +139,9 @@ if (layoutPreview) {
   const onTouchPointerMove = (event) => {
     if (event.pointerId === touchPointerId) {
       event.preventDefault();
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-layout-section]");
-      setDropTarget(target?.dataset.layoutSection === touchDraggedSectionKey ? undefined : target);
+      touchPointerX = event.clientX;
+      touchPointerY = event.clientY;
+      updateTouchDropTarget();
     }
   };
 
@@ -123,10 +157,13 @@ if (layoutPreview) {
     event.preventDefault();
     touchDraggedSectionKey = handle.dataset.layoutDragHandle;
     touchPointerId = event.pointerId;
+    touchPointerX = event.clientX;
+    touchPointerY = event.clientY;
     layoutPreview
       .querySelector(`[data-layout-section="${touchDraggedSectionKey}"]`)
       .classList.add("layout-section-dragging");
     setDropTarget(undefined);
+    touchScrollFrame = window.requestAnimationFrame(scrollWhileDragging);
     window.addEventListener("pointermove", onTouchPointerMove, { passive: false });
     window.addEventListener("pointerup", onTouchPointerUp);
     window.addEventListener("pointercancel", onTouchPointerCancel);
