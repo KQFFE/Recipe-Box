@@ -1,0 +1,13 @@
+@page "/Recipes/Shared/{token}"
+@model RecipeBox.Web.Pages.Recipes.SharedModel
+@{
+    ViewData["Title"] = Model.Presentation.Recipe.Title;
+}
+
+<article class="recipe-sheet">
+    <div class="mb-4">
+        <p class="text-secondary mb-1">Shared recipe</p>
+        <h1>@Model.Presentation.Recipe.Title</h1>
+    </div>
+    <partial name="_RecipeContent" model="Model.Presentation" />
+</article>

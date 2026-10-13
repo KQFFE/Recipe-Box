@@ -1,0 +1,18 @@
+@model RecipeBox.Web.Pages.Recipes.RecipeFormModel
+
+<div class="mb-3">
+    <label asp-for="ImageUpload" class="form-label"></label>
+    <input asp-for="ImageUpload" type="file" class="form-control" accept="image/jpeg,image/png,image/webp" />
+    <div class="form-text">JPEG, PNG, or WebP; maximum 10 MB. Stored privately with your recipe.</div>
+    @if (Model.HasUploadedImage)
+    {
+        <div class="mt-2">
+            <img src="@Model.CurrentImageSource" class="recipe-card-image rounded" alt="Current recipe cover image" />
+        </div>
+        <div class="form-check mt-2">
+            <input asp-for="RemoveUploadedImage" class="form-check-input" />
+            <label asp-for="RemoveUploadedImage" class="form-check-label"></label>
+        </div>
+    }
+    <span asp-validation-for="ImageUpload" class="text-danger"></span>
+</div>

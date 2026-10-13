@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$solutionPath = Join-Path $repositoryRoot "RecipeManager.slnx"
+$solutionPath = Join-Path $repositoryRoot "RecipeBox.slnx"
 $temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "RecipeBoxTests-$([Guid]::NewGuid().ToString('N'))"
 $baseOutputPath = Join-Path $temporaryDirectory "bin\"
 $testExitCode = 1

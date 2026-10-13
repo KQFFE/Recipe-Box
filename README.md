@@ -29,7 +29,7 @@ The app uses the standard ASP.NET Core Identity UI. Account confirmation is requ
 
 ### OCR runtime
 
-The app uses the `TesseractOCR` .NET wrapper and includes Tesseract's English and Swedish `tessdata_fast` models under `src\RecipeManager.Web\tessdata`. Both are pinned to source revision `87416418657359cb625c412a48b6e1d6d41c29bd` (English SHA-256 `7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`; Swedish SHA-256 `F7304988D41F833EFEBCC2D529DF54B1903ECEBBC3DA1FAABD19A0FDDD4FE586`); the Apache 2.0 license is included alongside them. The test OCR image and its license are in `tests\RecipeManager.Tests\TestData`.
+The app uses the `TesseractOCR` .NET wrapper and includes Tesseract's English and Swedish `tessdata_fast` models under `src\RecipeBox.Web\tessdata`. Both are pinned to source revision `87416418657359cb625c412a48b6e1d6d41c29bd` (English SHA-256 `7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`; Swedish SHA-256 `F7304988D41F833EFEBCC2D529DF54B1903ECEBBC3DA1FAABD19A0FDDD4FE586`); the Apache 2.0 license is included alongside them. The test OCR image and its license are in `tests\RecipeBox.Tests\TestData`.
 
 On Windows, the Tesseract package requires the Microsoft Visual C++ 2022 x64 runtime. On Linux or macOS, install the native Tesseract/Leptonica dependencies required by the wrapper for that host before using OCR. OCR recognizes English and Swedish text; symbols and decorative icons can still be misread, so the extracted draft must be reviewed before saving.
 
@@ -51,11 +51,11 @@ The repository includes a local .NET tool manifest pinning Entity Framework Core
 From the repository root:
 
 ```powershell
-dotnet restore RecipeManager.slnx
-dotnet run --project src\RecipeManager.Web\RecipeManager.Web.csproj
+dotnet restore RecipeBox.slnx
+dotnet run --project src\RecipeBox.Web\RecipeBox.Web.csproj
 ```
 
-Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeManager.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`, which stores local account and recipe data in `src\RecipeManager.Web\app.db` when run from the repository root. The database is local-only and ignored by Git; it is not copied into build or publish output. Uploaded cover images are stored outside the web root in `src\RecipeManager.Web\App_Data\recipe-images` by default (or in the configured `RecipeImages:StoragePath`). This directory is ignored by Git. Do not commit or upload database or image-storage files because they contain account and recipe data.
+Open the local URL printed by `dotnet run`. The app uses ASP.NET Core Identity and the default SQLite connection in `src\RecipeBox.Web\appsettings.json`. The connection string is `DataSource=app.db;Cache=Shared`, which stores local account and recipe data in `src\RecipeBox.Web\app.db` when run from the repository root. The database is local-only and ignored by Git; it is not copied into build or publish output. Uploaded cover images are stored outside the web root in `src\RecipeBox.Web\App_Data\recipe-images` by default (or in the configured `RecipeImages:StoragePath`). This directory is ignored by Git. Do not commit or upload database or image-storage files because they contain account and recipe data.
 
 Local filesystem storage is intended for development and single-server experiments. Before a multi-instance or production deployment, configure persistent private storage with appropriate backup/access controls or replace `IRecipeImageStorage` with an object-storage implementation.
 
@@ -74,26 +74,26 @@ dotnet tool restore
 After changing the EF Core model, create and review a migration:
 
 ```powershell
-dotnet tool run dotnet-ef migrations add DescribeTheChange --project src\RecipeManager.Web\RecipeManager.Web.csproj
+dotnet tool run dotnet-ef migrations add DescribeTheChange --project src\RecipeBox.Web\RecipeBox.Web.csproj
 ```
 
 Apply migrations to the configured database:
 
 ```powershell
-dotnet tool run dotnet-ef database update --project src\RecipeManager.Web\RecipeManager.Web.csproj
+dotnet tool run dotnet-ef database update --project src\RecipeBox.Web\RecipeBox.Web.csproj
 ```
 
-Keep migration files in `src\RecipeManager.Web\Data\Migrations`. Never commit local database files, credentials, or production connection strings.
+Keep migration files in `src\RecipeBox.Web\Data\Migrations`. Never commit local database files, credentials, or production connection strings.
 
 ## Run tests
 
 Run all tests from the repository root:
 
 ```powershell
-dotnet test RecipeManager.slnx
+dotnet test RecipeBox.slnx
 ```
 
-The standard command builds into the projects' normal `bin` folders. On Windows, if the development web app is already running from that build output, it holds `RecipeManager.Web.exe` open and prevents the build from replacing it. The resulting `MSB3026` retry warnings followed by `MSB3027`/`MSB3021` copy errors indicate this file lock; they are not test assertion failures. Stop the app with `Ctrl+C` in its terminal (or stop debugging), then rerun the standard command.
+The standard command builds into the projects' normal `bin` folders. On Windows, if the development web app is already running from that build output, it holds `RecipeBox.Web.exe` open and prevents the build from replacing it. The resulting `MSB3026` retry warnings followed by `MSB3027`/`MSB3021` copy errors indicate this file lock; they are not test assertion failures. Stop the app with `Ctrl+C` in its terminal (or stop debugging), then rerun the standard command.
 
 To keep the app running while testing, use the repository script instead:
 
@@ -106,9 +106,9 @@ The script builds and runs the full solution test suite with a unique temporary 
 The solution includes real-browser tests. Install Chromium once after building the browser-test project:
 
 ```powershell
-dotnet build tests\RecipeManager.BrowserTests\RecipeManager.BrowserTests.csproj
-powershell -ExecutionPolicy Bypass -File tests\RecipeManager.BrowserTests\bin\Debug\net10.0\playwright.ps1 install chromium
-dotnet test tests\RecipeManager.BrowserTests\RecipeManager.BrowserTests.csproj
+dotnet build tests\RecipeBox.BrowserTests\RecipeBox.BrowserTests.csproj
+powershell -ExecutionPolicy Bypass -File tests\RecipeBox.BrowserTests\bin\Debug\net10.0\playwright.ps1 install chromium
+dotnet test tests\RecipeBox.BrowserTests\RecipeBox.BrowserTests.csproj
 ```
 
 Browser tests launch the web app on a temporary local port with a temporary SQLite database and remove that database afterward. They register a fresh account per journey and use deterministic OCR and recipe-import adapters only when the `RecipeBox:BrowserTestMode` setting is enabled in Development. Normal Development and Production runs use local Tesseract and the public-Internet URL importer. Never enable browser-test mode in a deployed application.
@@ -116,17 +116,17 @@ Browser tests launch the web app on a temporary local port with a temporary SQLi
 Build without running tests:
 
 ```powershell
-dotnet build RecipeManager.slnx
+dotnet build RecipeBox.slnx
 ```
 
-`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeLayoutTests` cover default settings and reject invalid section configurations; `RecipeLayoutPagesTests` cover the live recipe preview, saved layout order/width, content preservation, and owner isolation. `LocalRecipeImageStorageTests` cover private per-owner file storage; `RecipeImagePagesTests` cover upload, replacement, removal, owner authorization, and share-link image access. `RecipeSharingTests` cover token generation, owner checks, read-only shared rendering with the saved layout, link rotation, and revocation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, photo and URL capture/review/save, authentication, and owner isolation. `RecipeManager.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, cover-image upload and share access, photo review/save, URL-import review/save, compact layout overview and detail expansion, drag-and-drop swapping and edge auto-scroll, and sharing in a real browser.
+`RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeLayoutTests` cover default settings and reject invalid section configurations; `RecipeLayoutPagesTests` cover the live recipe preview, saved layout order/width, content preservation, and owner isolation. `LocalRecipeImageStorageTests` cover private per-owner file storage; `RecipeImagePagesTests` cover upload, replacement, removal, owner authorization, and share-link image access. `RecipeSharingTests` cover token generation, owner checks, read-only shared rendering with the saved layout, link rotation, and revocation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, photo and URL capture/review/save, authentication, and owner isolation. `RecipeBox.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, cover-image upload and share access, photo review/save, URL-import review/save, compact layout overview and detail expansion, drag-and-drop swapping and edge auto-scroll, and sharing in a real browser.
 
 ## Project structure
 
 ```text
-RecipeManager.slnx
+RecipeBox.slnx
 src/
-  RecipeManager.Web/
+  RecipeBox.Web/
     Areas/Identity/       ASP.NET Core Identity UI integration
     Data/                 EF Core DbContext and database migrations
     App_Data/             Private local recipe-image files (ignored by Git)
@@ -140,9 +140,9 @@ src/
     Program.cs             Dependency injection and HTTP pipeline configuration
     appsettings*.json      Local application configuration
 tests/
-  RecipeManager.Tests/    Unit tests and HTTP-level application tests
+  RecipeBox.Tests/    Unit tests and HTTP-level application tests
     TestData/              Licensed OCR fixture and expected text
-  RecipeManager.BrowserTests/ Playwright browser journeys against a local app process
+  RecipeBox.BrowserTests/ Playwright browser journeys against a local app process
 dotnet-tools.json         Pinned local development tools
 ```
 
@@ -159,7 +159,7 @@ dotnet-tools.json         Pinned local development tools
 - **Shared navigation or page chrome:** `Pages/Shared/`.
 - **Application-wide service registration or middleware:** `Program.cs`.
 - **User-facing styles and scripts:** `wwwroot/css/` and `wwwroot/js/`.
-- **Business-rule unit tests:** `tests/RecipeManager.Tests/`.
+- **Business-rule unit tests:** `tests/RecipeBox.Tests/`.
 - **HTTP, persistence, and authorization behavior:** add focused tests in `RecipePagesEndToEndTests.cs` or a new test class using `RecipeAppFactory`.
 
 Keep recipes scoped to the authenticated Identity user. Page handlers should query and update a recipe using both its ID and the current user's ID; never trust an owner ID supplied by a form.
