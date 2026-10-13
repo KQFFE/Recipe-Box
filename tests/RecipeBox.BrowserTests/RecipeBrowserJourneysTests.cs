@@ -17,6 +17,11 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await using var context = await application.CreateContextAsync();
         var page = await context.NewPageAsync();
         await RegisterUserAsync(page);
+        await page.Keyboard.PressAsync("Tab");
+        var skipLink = page.GetByRole(AriaRole.Link, new() { Name = "Skip to main content" });
+        await Assertions.Expect(skipLink).ToBeFocusedAsync();
+        await page.Keyboard.PressAsync("Enter");
+        Assert.Equal("#main-content", await page.EvaluateAsync<string>("() => location.hash"));
 
         await page.GotoAsync($"{application.BaseUrl}/Recipes/Create");
         await page.GetByLabel("Recipe name").FillAsync("Browser-tested tomato soup");
@@ -52,11 +57,36 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
         await Assertions.Expect(layoutHelp.GetByText("How to customize")).ToBeVisibleAsync();
         await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
             .ToBeHiddenAsync();
+        var secondaryTextContrast = await layoutHelp.Locator("summary").EvaluateAsync<double>(
+            """
+            element => {
+                const parse = color => color.match(/[\d.]+/g).slice(0, 3).map(Number);
+                const luminance = color => {
+                    const channels = parse(color).map(value => {
+                        const normalized = value / 255;
+                        return normalized <= 0.04045
+                            ? normalized / 12.92
+                            : ((normalized + 0.055) / 1.055) ** 2.4;
+                    });
+                    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+                };
+                const foreground = getComputedStyle(element).color;
+                const background = getComputedStyle(document.body).backgroundColor;
+                const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+                return (values[0] + 0.05) / (values[1] + 0.05);
+            }
+            """);
+        Assert.True(secondaryTextContrast >= 4.5, $"Secondary instructional text contrast was {secondaryTextContrast:F2}:1.");
         await layoutHelp.GetByText("How to customize").ClickAsync();
         await Assertions.Expect(layoutHelp.GetByText("Drag sections to arrange them", new() { Exact = false }))
             .ToBeVisibleAsync();
         await layoutHelp.GetByText("How to customize").ClickAsync();
         await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.").First).ToBeVisibleAsync();
+        foreach (var sectionName in new[] { "Description", "Image", "Ingredients", "How to prepare" })
+        {
+            await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Region, new() { Name = sectionName }))
+                .ToBeVisibleAsync();
+        }
         var actionSpacing = await page.Locator(".layout-editor-actions")
             .EvaluateAsync<double>("element => parseFloat(getComputedStyle(element).marginTop)");
         Assert.True(actionSpacing >= 32, "Layout action buttons should be separated from the preview.");
@@ -126,6 +156,16 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
                 }
                 """);
         Assert.True(dragAndCheckboxShareRow, "The drag handle and width checkbox should have a visible gap on the same row.");
+        var mobileActionTargetsAreLargeEnough = await layoutPreview.Locator(
+                ".layout-section-toolbar .btn, .layout-section-toolbar .form-check-label, .layout-section-overview [data-layout-expand]")
+            .EvaluateAllAsync<bool[]>(
+                    """
+                    targets => targets.map(target => {
+                        const bounds = target.getBoundingClientRect();
+                        return bounds.width >= 44 && bounds.height >= 44;
+                    })
+                    """);
+        Assert.All(mobileActionTargetsAreLargeEnough, Assert.True);
         await Assertions.Expect(layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }))
             .ToBeVisibleAsync();
         await layoutPreview.GetByRole(AriaRole.Button, new() { Name = "View full Ingredients" }).ClickAsync();

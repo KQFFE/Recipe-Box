@@ -4,6 +4,12 @@ Recipe Box is the starting point for a personal recipe-capturing and management 
 
 The project is intentionally growing through small, testable workflows. Recipe photo OCR and website import both have review-before-save steps. Users can customize the order and width of a recipe's presentation sections, saved per user and recipe, and share that view through a revocable read-only link.
 
+## Accessibility standard
+
+WCAG 2.1 Level AA is a product requirement for every page and future change. Preserve semantic headings and landmarks, programmatic form labels and error messages, keyboard operation and visible focus, readable text/background contrast, and usable pointer targets. Do not rely on color, dragging, or hover alone to communicate information or complete an action. Prefer native accessible HTML controls and provide equivalent keyboard-operable actions for gestures.
+
+Accessibility validation is part of feature acceptance: add browser coverage for the relevant keyboard, screen-reader semantics, responsive zoom/reflow, and target sizing, and run automated accessibility checks where available. Automated checks supplement, but do not replace, manual keyboard and screen-reader review. Do not describe the app as WCAG-conformant until all pages and key states have been audited against WCAG 2.1 AA.
+
 ## What works today
 
 - ASP.NET Core Razor Pages web app targeting .NET 10.

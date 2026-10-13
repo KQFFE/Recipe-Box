@@ -9,6 +9,10 @@
                  data-layout-section="@layoutSection.Key"
                  class="recipe-layout-panel @fullWidthClass"
                  aria-labelledby="heading-@layoutSection.Key">
+            <h2 id="heading-@layoutSection.Key"
+                class="@(Model.IsLayoutEditor || layoutSection.Key is RecipeLayoutDefinition.Description or RecipeLayoutDefinition.Image ? "visually-hidden" : "h4")">
+                @layoutSection.Label
+            </h2>
             @if (Model.IsLayoutEditor)
             {
                 <div class="layout-drop-indicator" aria-hidden="true">Put here</div>
@@ -81,15 +85,12 @@
             @switch (layoutSection.Key)
             {
                 case RecipeLayoutDefinition.Description:
-                    <h2 id="heading-@layoutSection.Key" class="visually-hidden">@layoutSection.Label</h2>
                     <p class="lead text-secondary mb-0">@Model.Recipe.Description</p>
                     break;
                 case RecipeLayoutDefinition.Image:
-                    <h2 id="heading-@layoutSection.Key" class="visually-hidden">@layoutSection.Label</h2>
                     <img src="@Model.ImageSource" class="img-fluid rounded-3 recipe-detail-image" alt="@Model.Recipe.Title" />
                     break;
                 case RecipeLayoutDefinition.Ingredients:
-                    <h2 id="heading-@layoutSection.Key" class="h4">@layoutSection.Label</h2>
                     <ul class="list-group list-group-flush">
                         @foreach (var ingredient in Model.Ingredients)
                         {
@@ -98,7 +99,6 @@
                     </ul>
                     break;
                 case RecipeLayoutDefinition.Instructions:
-                    <h2 id="heading-@layoutSection.Key" class="h4">@layoutSection.Label</h2>
                     <ol class="list-group list-group-numbered">
                         @foreach (var step in Model.Instructions)
                         {
