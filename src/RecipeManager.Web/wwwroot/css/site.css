@@ -46,6 +46,48 @@ body {
   grid-column: 1 / -1;
 }
 
+.layout-editor {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.5fr);
+  gap: 2rem;
+  margin-block: 2rem;
+}
+
+.layout-editor-controls {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.layout-editor-preview-container {
+  min-width: 0;
+}
+
+.layout-editor-preview {
+  padding: 1.25rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background: var(--bs-tertiary-bg);
+}
+
+.layout-editor-preview [data-layout-section] {
+  cursor: grab;
+}
+
+.layout-editor-preview [data-layout-section]:active {
+  cursor: grabbing;
+}
+
+.layout-editor-preview [data-layout-section]:focus-visible {
+  outline: 0.2rem solid #258cfb;
+  outline-offset: 0.2rem;
+}
+
+.layout-editor-preview .layout-section-dragging {
+  opacity: 0.4;
+}
+
 @media (max-width: 767.98px) {
   .recipe-layout-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -53,6 +95,14 @@ body {
 
   .recipe-layout-panel {
     grid-column: 1;
+  }
+
+  .layout-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .layout-editor-preview {
+    padding: 1rem;
   }
 }
 

@@ -18,7 +18,11 @@ public sealed class RecipeLayoutPagesTests
         var recipeId = await CreateRecipeAsync(factory, RecipeAppFactory.TestUserId);
         var layoutPage = await client.GetAsync($"/Recipes/Layout/{recipeId}");
         Assert.Equal(HttpStatusCode.OK, layoutPage.StatusCode);
-        var token = ExtractAntiforgeryToken(await layoutPage.Content.ReadAsStringAsync());
+        var layoutHtml = await layoutPage.Content.ReadAsStringAsync();
+        Assert.Contains("Current layout preview", layoutHtml, StringComparison.Ordinal);
+        Assert.Contains("data-layout-section=\"ingredients\"", layoutHtml, StringComparison.Ordinal);
+        Assert.Contains("1 cup flour", layoutHtml, StringComparison.Ordinal);
+        var token = ExtractAntiforgeryToken(layoutHtml);
 
         var saveResponse = await client.PostAsync(
             $"/Recipes/Layout/{recipeId}?handler=Save",
@@ -78,6 +82,51 @@ public sealed class RecipeLayoutPagesTests
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Empty(await db.RecipeLayouts.ToListAsync());
+    }
+
+    [Fact]
+    public async Task LayoutPage_MoveHandlersReorderSectionsInThePreview()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var recipeId = await CreateRecipeAsync(factory, RecipeAppFactory.TestUserId);
+        var layoutPage = await client.GetAsync($"/Recipes/Layout/{recipeId}");
+        var token = ExtractAntiforgeryToken(await layoutPage.Content.ReadAsStringAsync());
+        var originalOrder = new[]
+        {
+            new KeyValuePair<string, string>("SectionOrder", "description"),
+            new KeyValuePair<string, string>("SectionOrder", "image"),
+            new KeyValuePair<string, string>("SectionOrder", "ingredients"),
+            new KeyValuePair<string, string>("SectionOrder", "instructions"),
+            new KeyValuePair<string, string>("FullWidthSections", "description"),
+            new KeyValuePair<string, string>("FullWidthSections", "image")
+        };
+
+        var movedUp = await client.PostAsync(
+            $"/Recipes/Layout/{recipeId}?handler=MoveUp&index=3",
+            Form(token, originalOrder));
+        Assert.Equal(HttpStatusCode.OK, movedUp.StatusCode);
+        var movedUpHtml = await movedUp.Content.ReadAsStringAsync();
+        Assert.True(
+            movedUpHtml.IndexOf("data-layout-section=\"instructions\"", StringComparison.Ordinal)
+            < movedUpHtml.IndexOf("data-layout-section=\"ingredients\"", StringComparison.Ordinal));
+
+        var movedDown = await client.PostAsync(
+            $"/Recipes/Layout/{recipeId}?handler=MoveDown&index=2",
+            Form(ExtractAntiforgeryToken(movedUpHtml),
+            [
+                new("SectionOrder", "description"),
+                new("SectionOrder", "image"),
+                new("SectionOrder", "instructions"),
+                new("SectionOrder", "ingredients"),
+                new("FullWidthSections", "description"),
+                new("FullWidthSections", "image")
+            ]));
+        Assert.Equal(HttpStatusCode.OK, movedDown.StatusCode);
+        var movedDownHtml = await movedDown.Content.ReadAsStringAsync();
+        Assert.True(
+            movedDownHtml.IndexOf("data-layout-section=\"ingredients\"", StringComparison.Ordinal)
+            < movedDownHtml.IndexOf("data-layout-section=\"instructions\"", StringComparison.Ordinal));
     }
 
     [Fact]

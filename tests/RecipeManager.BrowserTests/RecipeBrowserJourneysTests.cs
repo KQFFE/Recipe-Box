@@ -43,16 +43,36 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
 
         await ExpectHeadingAsync(page, "Browser-tested smoky soup");
         await page.GetByRole(AriaRole.Link, new() { Name = "Customize layout" }).ClickAsync();
+        var layoutPreview = page.Locator(".layout-editor-preview");
+        await Assertions.Expect(layoutPreview.GetByText("Created in a real browser.")).ToBeVisibleAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Move How to prepare up" }).ClickAsync();
+        var accessibleMoveOrder = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
+        Assert.Equal(new[] { "description", "image", "instructions", "ingredients" }, accessibleMoveOrder);
+        var imageBounds = await layoutPreview.Locator("#recipe-section-image").BoundingBoxAsync();
+        Assert.NotNull(imageBounds);
+        await layoutPreview.Locator("#recipe-section-description")
+            .DragToAsync(
+                layoutPreview.Locator("#recipe-section-image"),
+                new() { TargetPosition = new TargetPosition { X = 10, Y = imageBounds.Height - 2 } });
+        var previewOrder = await layoutPreview.Locator("[data-layout-section]")
+            .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
+        Assert.Equal(new[] { "image", "description", "instructions", "ingredients" }, previewOrder);
+        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Move Description up" }))
+            .ToBeEnabledAsync();
         await page.Locator("li")
             .Filter(new() { HasText = "How to prepare" })
             .GetByLabel("Full width")
             .CheckAsync();
+        var previewInstructionClasses = await layoutPreview
+            .Locator("#recipe-section-instructions")
+            .GetAttributeAsync("class");
+        Assert.Contains("recipe-layout-panel-full", previewInstructionClasses);
         await page.GetByRole(AriaRole.Button, new() { Name = "Save layout" }).ClickAsync();
 
         var sectionOrder = await page.Locator("[data-layout-section]")
             .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
-        Assert.Equal(new[] { "description", "image", "instructions", "ingredients" }, sectionOrder);
+        Assert.Equal(new[] { "image", "description", "instructions", "ingredients" }, sectionOrder);
         var instructionClasses = await page.Locator("#recipe-section-instructions").GetAttributeAsync("class");
         Assert.Contains("recipe-layout-panel-full", instructionClasses);
 
@@ -73,7 +93,7 @@ public sealed class RecipeBrowserJourneysTests(BrowserTestApplication applicatio
             Assert.Equal(200, sharedImageStatus);
             var sharedSectionOrder = await sharedPage.Locator("[data-layout-section]")
                 .EvaluateAllAsync<string[]>("sections => sections.map(section => section.getAttribute('data-layout-section'))");
-            Assert.Equal(new[] { "description", "image", "instructions", "ingredients" }, sharedSectionOrder);
+            Assert.Equal(new[] { "image", "description", "instructions", "ingredients" }, sharedSectionOrder);
 
             await page.GetByRole(AriaRole.Button, new() { Name = "Revoke current link" }).ClickAsync();
             var revokedResponse = await sharedPage.GotoAsync(shareUrl);

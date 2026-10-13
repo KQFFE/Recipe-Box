@@ -19,6 +19,8 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
 
     public IReadOnlyList<RecipeLayoutSection> AvailableSections { get; private set; } = [];
 
+    public RecipePresentation Preview { get; private set; } = null!;
+
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken cancellationToken)
     {
         if (!await LoadRecipeAsync(id, cancellationToken))
@@ -32,8 +34,7 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
                 layout => layout.RecipeId == id && layout.OwnerId == CurrentUserId,
                 cancellationToken);
         var settings = RecipeLayoutDefinition.FromPreference(Recipe, preference);
-        SectionOrder = settings.Sections.Select(section => section.Key).ToList();
-        FullWidthSections = settings.FullWidthSections.ToList();
+        SetLayout(settings);
         return Page();
     }
 
@@ -60,8 +61,7 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
         }
 
         (sections[index - 1], sections[index]) = (sections[index], sections[index - 1]);
-        SectionOrder = sections.Select(section => section.Key).ToList();
-        FullWidthSections = settings.FullWidthSections.ToList();
+        SetLayout(settings with { Sections = sections });
         ModelState.Clear();
         return Page();
     }
@@ -89,8 +89,7 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
         }
 
         (sections[index + 1], sections[index]) = (sections[index], sections[index + 1]);
-        SectionOrder = sections.Select(section => section.Key).ToList();
-        FullWidthSections = settings.FullWidthSections.ToList();
+        SetLayout(settings with { Sections = sections });
         ModelState.Clear();
         return Page();
     }
@@ -150,11 +149,24 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
             FullWidthSections ?? [],
             out settings);
 
+    private void SetLayout(RecipeLayoutSettings settings)
+    {
+        SectionOrder = settings.Sections.Select(section => section.Key).ToList();
+        FullWidthSections = settings.FullWidthSections.ToList();
+        Preview = new RecipePresentation(
+            Recipe,
+            RecipeContent.ToLines(Recipe.Ingredients),
+            RecipeContent.ToLines(Recipe.Instructions),
+            settings.Sections,
+            settings.FullWidthSections,
+            !string.IsNullOrWhiteSpace(Recipe.StoredImageKey)
+                ? Url.Page("/Recipes/Image", values: new { id = Recipe.Id })
+                : Recipe.ImageUrl);
+    }
+
     private IActionResult InvalidLayout()
     {
-        var defaults = RecipeLayoutDefinition.Default(Recipe);
-        SectionOrder = defaults.Sections.Select(section => section.Key).ToList();
-        FullWidthSections = defaults.FullWidthSections.ToList();
+        SetLayout(RecipeLayoutDefinition.Default(Recipe));
         ModelState.Clear();
         ModelState.AddModelError(
             string.Empty,
