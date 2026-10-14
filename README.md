@@ -6,7 +6,7 @@ The project is intentionally growing through small, testable workflows. Recipe p
 
 The website supports phone-sized screens and can be used in a mobile browser. Native Android and iOS apps are in progress; a PWA is not a required part of that work. See [Roadmap.md](./Roadmap.md).
 
-A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. It is an initial native shell and is not connected to user accounts or recipes yet; the next step is designing the authenticated API.
+A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. It is an initial native shell and is not connected to user accounts or recipes yet; the API and sign-in design is documented below.
 
 ## Accessibility standard
 
@@ -38,6 +38,38 @@ Accessibility validation is part of feature acceptance: add browser coverage for
 
 The app uses the standard ASP.NET Core Identity UI. Account confirmation is required by the current Identity configuration; configure and verify an email sender before relying on real account registration and confirmation flows.
 
+## Mobile API and sign-in design
+
+The mobile app will use the existing ASP.NET Core Identity accounts and recipe database. It will not create a second account store or ask users to create a separate mobile password.
+
+### Sign-in
+
+* The web app will host OpenID Connect/OAuth endpoints with OpenIddict, integrated with ASP.NET Core Identity for its existing login, account-confirmation, and lockout rules. Identity remains the user store; OpenIddict persists authorization/token state through EF Core.
+* The native app will use the OAuth 2.0 authorization-code flow with PKCE, launched in the device's system browser. The app is a public client: it must not contain a client secret or collect the Identity password in a native form.
+* After sign-in, the app will send short-lived bearer access tokens to the API. Refresh tokens, if enabled, must rotate and be stored only in platform secure storage; sign-out must discard them and revoke them where supported.
+* Register only exact native redirect URIs. Prefer verified Android App Links and iOS Universal Links for production; do not accept arbitrary redirect URIs. Require HTTPS for the issuer and API outside local development.
+* The API will accept tokens from this issuer and require the `recipebox-api` audience and appropriate scopes. A valid token identifies the owner; clients must never choose or submit an owner ID.
+
+### Initial API contract
+
+Expose a versioned JSON API under `/api/v1`. Use request/response DTOs rather than exposing EF Core entities. The initial mobile slice needs:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/recipes` | List the signed-in user's recipes |
+| `GET` | `/api/v1/recipes/{id}` | Read one of the signed-in user's recipes |
+| `POST` | `/api/v1/recipes` | Create a recipe for the signed-in user |
+| `PUT` | `/api/v1/recipes/{id}` | Update one of the signed-in user's recipes |
+| `DELETE` | `/api/v1/recipes/{id}` | Delete one of the signed-in user's recipes |
+
+Recipe reads and writes must filter by the authenticated user's subject/Identity ID, including when looking up a recipe by ID; return `404` for both missing recipes and recipes owned by someone else. Use paged list responses with a server-enforced maximum page size. Request and response DTOs should represent ingredients and instructions as ordered line arrays, and include the recipe language and timestamps; write requests must not accept an owner ID, storage key, or server-managed timestamp. Validate and normalize submitted fields with the same rules as the web forms. Return standard `ProblemDetails` errors without exposing stack traces, secrets, or another user's data. Add owner-authorized image routes separately before mobile image upload or private-image display is implemented.
+
+Use `openid`, `profile`, and `email` for sign-in and identity, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. Apply request-size limits and rate limits to API operations, and use HTTPS in deployed environments.
+
+The first mobile release should require a network connection. Offline caching and edits need a separate privacy and synchronization design; do not cache private recipe responses by default. Recipe photo OCR and website import can be exposed through authenticated API operations after the basic sign-in and recipe journey is working.
+
+Production setup will need a stable HTTPS issuer/API address, persistent protected OpenID Connect signing and encryption keys with a rotation plan, exact registered app redirect URIs, and a verified email sender for confirmed accounts. Keep key material and provider credentials out of source control. iOS signing and App Store delivery additionally require Apple developer credentials and macOS/Xcode build infrastructure.
+
 ### OCR runtime
 
 The app uses the `TesseractOCR` .NET wrapper and includes Tesseract's English and Swedish `tessdata_fast` models under `src\RecipeBox.Web\tessdata`. Both are pinned to source revision `87416418657359cb625c412a48b6e1d6d41c29bd` (English SHA-256 `7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`; Swedish SHA-256 `F7304988D41F833EFEBCC2D529DF54B1903ECEBBC3DA1FAABD19A0FDDD4FE586`); the Apache 2.0 license is included alongside them. The test OCR image and its license are in `tests\RecipeBox.Tests\TestData`.
@@ -48,6 +80,7 @@ On Windows, the Tesseract package requires the Microsoft Visual C++ 2022 x64 run
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (not just the runtime).
 - Windows, macOS, or Linux.
+- Git.
 
 Check that the SDK is installed:
 
@@ -56,6 +89,28 @@ dotnet --list-sdks
 ```
 
 The repository includes a local .NET tool manifest pinning Entity Framework Core CLI (`dotnet-ef`) to the same version as the app's EF Core packages.
+
+### Native mobile development prerequisites
+
+The MAUI project targets Android and iOS. Building for a platform requires its native toolchain in addition to the .NET SDK:
+
+* **Android:** install the MAUI workload (`dotnet workload install maui`), JDK 17, and Android SDK Platform 36 plus Build-Tools 36.0.0. Android Studio can install Android SDK components through its SDK Manager. The GitHub Actions Android job provisions these tools on its hosted runner.
+* **iOS:** use a Mac with Xcode installed and configured, then install the MAUI workload (`dotnet workload install maui`). On Windows, pair Visual Studio with a reachable Mac build host; iOS apps cannot be built or signed on Windows alone.
+* **Device distribution:** Apple signing and App Store submission require Apple developer credentials. Android release signing also requires a protected signing key; do not put signing keys or passwords in the repository.
+
+After installing prerequisites, verify the Android target can be built:
+
+```powershell
+dotnet workload list
+dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --configuration Release --framework net10.0-android
+```
+
+On a configured Mac, build the iOS target with:
+
+```bash
+dotnet workload list
+dotnet build src/RecipeBox.Mobile/RecipeBox.Mobile.csproj --configuration Release --framework net10.0-ios
+```
 
 ## Run locally
 
