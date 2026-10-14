@@ -5,17 +5,18 @@ Roadmap
 4. [Complete] Add flexible layouts after the recipe content is stable. Keep each user’s layout separate from the underlying ingredients and instructions.
 5. [Complete] Add sharing after layouts. That lets us share a clear view of a recipe without making somebody else’s private recipe editable by default.
 
-## Next: make the website installable as a PWA
+## Next: build native Android and iOS apps
 
-The chosen direction is an installable Progressive Web App (PWA) built on the existing responsive website. This provides an app-like home-screen experience while keeping one client and the current ASP.NET Core backend.
+The goal is apps that install and run on Android and iOS devices. A PWA is not a required middle step; keep the responsive website as a useful web experience, but do not invest in PWA packaging unless it provides a separate user benefit.
 
-Implement and verify the mobile experience in small steps:
+Plan the app architecture before implementation:
 
-* Add the web app manifest, app icons, and install metadata, and document the HTTPS requirement for installation.
-* Test the install and launch experience on supported mobile browsers; preserve the accessible responsive website as the fallback.
-* Improve and test one focused phone journey: sign in, browse recipes, and capture or create a recipe.
-* Decide separately whether offline access is needed. Do not cache private recipe data or promise offline edits until the authentication, privacy, and synchronization behavior is designed.
-* Extend GitHub Actions with mobile-browser checks where practical. A native iOS/Android app and app-store distribution are not part of this PWA phase.
+* Evaluate a shared cross-platform native client. .NET MAUI is a natural candidate alongside the existing .NET stack; confirm it meets the desired device features and development workflow before choosing it.
+* Define a secure, authenticated API for the mobile client. The current server-rendered Razor Pages app is not yet a mobile API; retain its existing web experience while adding only the API surface the app needs.
+* Decide how mobile sign-in, photo capture and upload, recipe URL import, and account-scoped access should work.
+* Decide whether offline recipe access or edits are required. Do not cache private recipe data or promise offline edits until privacy and synchronization behavior are designed.
+* Build and test one focused native journey on real Android and iOS devices: sign in, browse recipes, and create a recipe or capture a photo.
+* Extend GitHub Actions for Android builds and tests. Plan for iOS builds and signing, which require Apple signing credentials and macOS build infrastructure.
 
 Keep scalability without overbuilding
 * Keep one app and one database for now. SQLite is fine locally; move to a managed relational database when deployment or usage calls for it.
