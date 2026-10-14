@@ -69,6 +69,20 @@
                     Style="{StaticResource SubHeadline}"
                     SemanticProperties.HeadingLevel="Level2" />
 
+                <Button
+                    x:Name="CapturePhotoButton"
+                    Text="Capture recipe photo"
+                    Clicked="OnCapturePhotoClicked" />
+                <Entry
+                    x:Name="ImportUrlEntry"
+                    Placeholder="Paste a public recipe page URL"
+                    Keyboard="Url"
+                    ClearButtonVisibility="WhileEditing" />
+                <Button
+                    x:Name="ImportUrlButton"
+                    Text="Import recipe page"
+                    Clicked="OnImportUrlClicked" />
+
                 <Entry
                     x:Name="TitleEntry"
                     Placeholder="Recipe title"

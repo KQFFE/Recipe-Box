@@ -205,6 +205,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorPages()

@@ -45,6 +45,8 @@
 	</dict>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Recipe Box uses the camera to scan a recipe into an editable draft.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -118,6 +118,52 @@ public partial class MainPage : ContentPage
         });
     }
 
+    private async void OnCapturePhotoClicked(object? sender, EventArgs e)
+    {
+        if (!TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            var photo = await MediaPicker.Default.CapturePhotoAsync(new MediaPickerOptions
+            {
+                Title = "Capture a recipe"
+            });
+            if (photo is null)
+            {
+                StatusLabel.Text = "Photo capture was cancelled.";
+                return;
+            }
+
+            await using var photoStream = await photo.OpenReadAsync();
+            var (bytes, contentType, fileName) = await ReadPhotoAsync(photoStream);
+            var draft = await apiClient.ExtractPhotoDraftAsync(
+                serverAddress,
+                bytes,
+                contentType,
+                fileName);
+            ShowDraftForReview(draft);
+        });
+    }
+
+    private async void OnImportUrlClicked(object? sender, EventArgs e)
+    {
+        if (!TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            var draft = await apiClient.ImportRecipeDraftAsync(
+                serverAddress,
+                ImportUrlEntry.Text ?? string.Empty);
+            ShowDraftForReview(draft);
+        });
+    }
+
     private async Task LoadRecipesAsync(bool loadNextPage = false)
     {
         if (!TryGetServerAddress(out var serverAddress))
@@ -222,6 +268,62 @@ public partial class MainPage : ContentPage
         };
     }
 
+    private void ShowDraftForReview(RecipeDraftResponse draft)
+    {
+        TitleEntry.Text = draft.Title;
+        DescriptionEntry.Text = draft.Description;
+        LanguagePicker.SelectedIndex = draft.LanguageCode == "sv" ? 1 : 0;
+        IngredientsEditor.Text = string.Join(Environment.NewLine, draft.Ingredients);
+        InstructionsEditor.Text = string.Join(Environment.NewLine, draft.Instructions);
+        StatusLabel.Text = "Review and edit the extracted recipe, then save it.";
+        TitleEntry.Focus();
+    }
+
+    private static async Task<(byte[] Bytes, string ContentType, string FileName)> ReadPhotoAsync(
+        Stream photoStream)
+    {
+        const int maximumBytes = 10 * 1024 * 1024;
+        await using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        while (true)
+        {
+            var bytesRead = await photoStream.ReadAsync(chunk);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            if (buffer.Length + bytesRead > maximumBytes)
+            {
+                throw new InvalidDataException("Choose a photo smaller than 10 MB.");
+            }
+
+            await buffer.WriteAsync(chunk.AsMemory(0, bytesRead));
+        }
+
+        var bytes = buffer.ToArray();
+        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+        {
+            return (bytes, "image/jpeg", "capture.jpg");
+        }
+
+        if (bytes.Length >= 8
+            && bytes.AsSpan(0, 8).SequenceEqual(
+                new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+        {
+            return (bytes, "image/png", "capture.png");
+        }
+
+        if (bytes.Length >= 12
+            && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8)
+            && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8))
+        {
+            return (bytes, "image/webp", "capture.webp");
+        }
+
+        throw new InvalidDataException("The captured photo must be JPEG, PNG, or WebP.");
+    }
+
     private async Task RunBusyOperationAsync(Func<Task> operation)
     {
         if (isBusy)
@@ -289,6 +391,9 @@ public partial class MainPage : ContentPage
         InstructionsEditor.IsEnabled = enabled;
         RefreshButton.IsEnabled = enabled;
         LoadMoreButton.IsEnabled = enabled;
+        CapturePhotoButton.IsEnabled = enabled;
+        ImportUrlButton.IsEnabled = enabled;
+        ImportUrlEntry.IsEnabled = enabled;
         CreateButton.IsEnabled = enabled;
     }
 
@@ -299,7 +404,11 @@ public partial class MainPage : ContentPage
     private static bool IsExpectedClientException(Exception exception) =>
         exception is MobileApiException
             or HttpRequestException
+            or IOException
+            or InvalidDataException
             or InvalidOperationException
+            or FeatureNotSupportedException
+            or PermissionException
             or JsonException
             or OperationCanceledException;
 }

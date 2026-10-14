@@ -196,6 +196,129 @@ public sealed class RecipesApiTests
     }
 
     [Fact]
+    public async Task RecipesApi_StoresAndServesImagesOnlyToTheOwner()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var createResponse = await client.PostAsJsonAsync("/api/v1/recipes", new
+        {
+            title = "Photo soup",
+            languageCode = "en",
+            ingredients = new[] { "Tomatoes" },
+            instructions = new[] { "Cook." }
+        });
+        var recipe = await createResponse.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions);
+        Assert.NotNull(recipe);
+
+        using var imageContent = new MultipartFormDataContent();
+        imageContent.Add(
+            new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x00]),
+            "image",
+            "cover.jpg");
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/recipes/{recipe.Id}/image")
+        {
+            Content = imageContent
+        };
+        var uploadResponse = await client.SendAsync(uploadRequest);
+        Assert.Equal(HttpStatusCode.NoContent, uploadResponse.StatusCode);
+        Assert.Equal(1, factory.ImageStorage.Count);
+
+        var imageResponse = await client.GetAsync($"/api/v1/recipes/{recipe.Id}/image");
+        Assert.Equal(HttpStatusCode.OK, imageResponse.StatusCode);
+        Assert.Equal("image/jpeg", imageResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("no-store", imageResponse.Headers.CacheControl?.ToString());
+        Assert.Equal(
+            new byte[] { 0xFF, 0xD8, 0xFF, 0x00 },
+            await imageResponse.Content.ReadAsByteArrayAsync());
+
+        using var otherOwnerGet = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/recipes/{recipe.Id}/image");
+        otherOwnerGet.Headers.Add("X-Test-UserId", "another-recipe-owner");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(otherOwnerGet)).StatusCode);
+
+        using var otherOwnerDelete = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/api/v1/recipes/{recipe.Id}/image");
+        otherOwnerDelete.Headers.Add("X-Test-UserId", "another-recipe-owner");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(otherOwnerDelete)).StatusCode);
+        Assert.Equal(1, factory.ImageStorage.Count);
+        using var otherOwnerUploadContent = new MultipartFormDataContent();
+        otherOwnerUploadContent.Add(
+            new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x01]),
+            "image",
+            "other.jpg");
+        using var otherOwnerUpload = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/recipes/{recipe.Id}/image")
+        {
+            Content = otherOwnerUploadContent
+        };
+        otherOwnerUpload.Headers.Add("X-Test-UserId", "another-recipe-owner");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(otherOwnerUpload)).StatusCode);
+        Assert.Equal(1, factory.ImageStorage.Count);
+
+        var deleteResponse = await client.DeleteAsync($"/api/v1/recipes/{recipe.Id}/image");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Equal(0, factory.ImageStorage.Count);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/v1/recipes/{recipe.Id}/image")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RecipesApi_ReturnsReviewedPhotoDraftWithoutSavingThePhoto()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        using var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x00]), "photo", "capture.jpg");
+
+        var response = await client.PostAsync("/api/v1/recipes/drafts/photo", form);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var draft = await response.Content.ReadFromJsonAsync<RecipeDraftResponse>(JsonOptions);
+        Assert.NotNull(draft);
+        Assert.Equal("Tomato soup", draft.Title);
+        Assert.Equal(["4 tomatoes", "1 onion"], draft.Ingredients);
+        Assert.Equal(["Roast the vegetables.", "Blend until smooth."], draft.Instructions);
+        Assert.Equal(1, factory.TextExtractor.CallCount);
+        Assert.Equal(0, factory.ImageStorage.Count);
+
+        using var unsupportedForm = new MultipartFormDataContent();
+        unsupportedForm.Add(new ByteArrayContent([0x00, 0x01, 0x02]), "photo", "capture.bin");
+        var unsupportedResponse = await client.PostAsync("/api/v1/recipes/drafts/photo", unsupportedForm);
+        Assert.Equal(HttpStatusCode.BadRequest, unsupportedResponse.StatusCode);
+        Assert.Equal(1, factory.TextExtractor.CallCount);
+    }
+
+    [Fact]
+    public async Task RecipesApi_ReturnsEditableImportDraftAndRejectsPrivateUrls()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/recipes/drafts/import",
+            new { url = "https://recipes.example.test/tomato-soup" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var draft = await response.Content.ReadFromJsonAsync<RecipeDraftResponse>(JsonOptions);
+        Assert.NotNull(draft);
+        Assert.Equal("Tomato soup", draft.Title);
+        Assert.Equal("en", draft.LanguageCode);
+        Assert.Equal(["4 tomatoes", "1 onion"], draft.Ingredients);
+        Assert.Equal("https://recipes.example.test/tomato-soup", factory.UrlImporter.LastUri?.AbsoluteUri);
+
+        var privateUrlResponse = await client.PostAsJsonAsync(
+            "/api/v1/recipes/drafts/import",
+            new { url = "http://127.0.0.1/recipe" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, privateUrlResponse.StatusCode);
+        Assert.Equal(1, factory.UrlImporter.CallCount);
+    }
+
+    [Fact]
     public async Task OpenIddict_AdvertisesCodeFlowAndUsesIdentityLogin()
     {
         using var factory = new RecipeAppFactory();

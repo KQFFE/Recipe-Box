@@ -100,11 +100,6 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             serverAddress,
             cancellationToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await tokenStore.ClearAsync(cancellationToken);
-        }
-
         await EnsureSuccessAsync(response, cancellationToken);
         var recipeList = await response.Content.ReadFromJsonAsync<RecipeListResponse>(JsonOptions, cancellationToken)
             ?? throw new JsonException("The recipe server returned an empty response.");
@@ -123,12 +118,48 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             cancellationToken);
         request.Content = JsonContent.Create(recipe, options: JsonOptions);
         using var response = await httpClient.SendAsync(request, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await tokenStore.ClearAsync(cancellationToken);
-        }
-
         await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<RecipeDraftResponse> ExtractPhotoDraftAsync(
+        Uri serverAddress,
+        byte[] photoBytes,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Post,
+            new Uri(serverAddress, "api/v1/recipes/drafts/photo"),
+            serverAddress,
+            cancellationToken);
+        using var multipart = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(photoBytes);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        multipart.Add(imageContent, "photo", fileName);
+        request.Content = multipart;
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RecipeDraftResponse>(JsonOptions, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty photo-draft response.");
+    }
+
+    public async Task<RecipeDraftResponse> ImportRecipeDraftAsync(
+        Uri serverAddress,
+        string recipeUrl,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Post,
+            new Uri(serverAddress, "api/v1/recipes/drafts/import"),
+            serverAddress,
+            cancellationToken);
+        request.Content = JsonContent.Create(new RecipeDraftRequest(recipeUrl), options: JsonOptions);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RecipeDraftResponse>(JsonOptions, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty import-draft response.");
     }
 
     public async Task SignOutAsync(
@@ -297,13 +328,18 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             cancellationToken);
     }
 
-    private static async Task EnsureSuccessAsync(
+    private async Task EnsureSuccessAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
         {
             return;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await tokenStore.ClearAsync(cancellationToken);
         }
 
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -387,6 +423,16 @@ public sealed record RecipeListResponse(
 public sealed record RecipeWriteRequest(
     string Title,
     string? Description,
+    string LanguageCode,
+    IReadOnlyList<string> Ingredients,
+    IReadOnlyList<string> Instructions);
+
+public sealed record RecipeDraftRequest(string Url);
+
+public sealed record RecipeDraftResponse(
+    string Title,
+    string? Description,
+    string? ImageUrl,
     string LanguageCode,
     IReadOnlyList<string> Ingredients,
     IReadOnlyList<string> Instructions);

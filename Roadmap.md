@@ -15,8 +15,8 @@ Next:
 
 * [Complete] Implement the OpenID Connect issuer with ASP.NET Core Identity and OAuth authorization-code sign-in with PKCE and rotating refresh tokens for the native public client. Keep passwords in the system-browser Identity flow; do not embed a client secret in the app.
 * [Complete] Implement the versioned bearer-token recipe API with owner-scoped DTO endpoints and tests for authentication, validation, and cross-account isolation.
-* [Implemented] Add mobile sign-in and the browse/create recipe journey against the API. Add owner-authorized image endpoints before supporting private image display or uploads.
-* Add owner-authorized image endpoints, then expose photo capture and recipe URL import through authenticated operations.
+* [Implemented] Add mobile sign-in and the browse/create recipe journey against the API.
+* [Implemented] Add owner-authorized image endpoints, photo capture/OCR drafts, and recipe URL import drafts through authenticated operations.
 * Decide whether offline recipe access or edits are required. Do not cache private recipe data or promise offline edits until privacy and synchronization behavior are designed.
 * Build and test one focused native journey on real Android and iOS devices: sign in, browse recipes, and create a recipe or capture a photo.
 * GitHub Actions now compiles the Android target. Add iOS builds and signing when Apple signing credentials and macOS build infrastructure are available.
