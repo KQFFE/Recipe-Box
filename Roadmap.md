@@ -5,16 +5,17 @@ Roadmap
 4. [Complete] Add flexible layouts after the recipe content is stable. Keep each user’s layout separate from the underlying ingredients and instructions.
 5. [Complete] Add sharing after layouts. That lets us share a clear view of a recipe without making somebody else’s private recipe editable by default.
 
-## Next: plan the mobile app
+## Next: make the website installable as a PWA
 
-The current app is a responsive website that works in phone browsers; it is not a separate installable mobile app. Before implementation, decide whether the goal is:
+The chosen direction is an installable Progressive Web App (PWA) built on the existing responsive website. This provides an app-like home-screen experience while keeping one client and the current ASP.NET Core backend.
 
-* An installable Progressive Web App (PWA) that reuses the existing website, or
-* A dedicated iOS and Android app with a mobile client connected to the existing recipe service.
+Implement and verify the mobile experience in small steps:
 
-Start by agreeing on how users should install and open it, and whether offline access or app-store distribution is required. That choice determines the client technology, authentication approach, and mobile-specific CI checks. Keep the existing website working throughout.
-
-After choosing the approach, build and test one focused mobile journey—sign in, browse recipes, and capture or create a recipe—before expanding the mobile feature set.
+* Add the web app manifest, app icons, and install metadata, and document the HTTPS requirement for installation.
+* Test the install and launch experience on supported mobile browsers; preserve the accessible responsive website as the fallback.
+* Improve and test one focused phone journey: sign in, browse recipes, and capture or create a recipe.
+* Decide separately whether offline access is needed. Do not cache private recipe data or promise offline edits until the authentication, privacy, and synchronization behavior is designed.
+* Extend GitHub Actions with mobile-browser checks where practical. A native iOS/Android app and app-store distribution are not part of this PWA phase.
 
 Keep scalability without overbuilding
 * Keep one app and one database for now. SQLite is fine locally; move to a managed relational database when deployment or usage calls for it.

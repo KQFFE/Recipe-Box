@@ -4,7 +4,7 @@ Recipe Box is the starting point for a personal recipe-capturing and management 
 
 The project is intentionally growing through small, testable workflows. Recipe photo OCR and website import both have review-before-save steps. Users can customize the order and width of a recipe's presentation sections, saved per user and recipe, and share that view through a revocable read-only link.
 
-The website supports phone-sized screens and can be used in a mobile browser. A separate installable mobile app is not implemented yet; see [Roadmap.md](./Roadmap.md) for the next planning step.
+The website supports phone-sized screens and can be used in a mobile browser. It is not installable as a PWA yet; making it installable is the next planned step in [Roadmap.md](./Roadmap.md).
 
 ## Accessibility standard
 
