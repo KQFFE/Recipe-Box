@@ -4,6 +4,8 @@ Recipe Box is the starting point for a personal recipe-capturing and management 
 
 The project is intentionally growing through small, testable workflows. Recipe photo OCR and website import both have review-before-save steps. Users can customize the order and width of a recipe's presentation sections, saved per user and recipe, and share that view through a revocable read-only link.
 
+The website supports phone-sized screens and can be used in a mobile browser. A separate installable mobile app is not implemented yet; see [Roadmap.md](./Roadmap.md) for the next planning step.
+
 ## Accessibility standard
 
 WCAG 2.1 Level AA is a product requirement for every page and future change. Preserve semantic headings and landmarks, programmatic form labels and error messages, keyboard operation and visible focus, readable text/background contrast, and usable pointer targets. Do not rely on color, dragging, or hover alone to communicate information or complete an action. Prefer native accessible HTML controls and provide equivalent keyboard-operable actions for gestures.
