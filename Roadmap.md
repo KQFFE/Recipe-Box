@@ -9,16 +9,17 @@ Roadmap
 
 The goal is apps that install and run on Android and iOS devices. A PWA is not a required middle step; keep the responsive website as a useful web experience, but do not invest in PWA packaging unless it provides a separate user benefit.
 
-The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` now supports system-browser sign-in, paged recipe browsing, and recipe creation against the API. Device testing and production link association remain outstanding; setup and sign-in behavior are documented in the README.
+The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` supports system-browser sign-in, paged recipe browsing, recipe creation and editing, deletion, private cover-image management, photo capture, and URL import against the API. Device testing and production link association remain outstanding; setup and sign-in behavior are documented in the README.
 
 Next:
 
 * [Complete] Implement the OpenID Connect issuer with ASP.NET Core Identity and OAuth authorization-code sign-in with PKCE and rotating refresh tokens for the native public client. Keep passwords in the system-browser Identity flow; do not embed a client secret in the app.
 * [Complete] Implement the versioned bearer-token recipe API with owner-scoped DTO endpoints and tests for authentication, validation, and cross-account isolation.
-* [Implemented] Add mobile sign-in and the browse/create recipe journey against the API.
+* [Implemented] Add mobile sign-in and the browse/create/edit/delete recipe journey against the API.
 * [Implemented] Add owner-authorized image endpoints, photo capture/OCR drafts, and recipe URL import drafts through authenticated operations.
+* [Implemented] Add mobile cover-image viewing, replacement, and removal for recipes.
 * Decide whether offline recipe access or edits are required. Do not cache private recipe data or promise offline edits until privacy and synchronization behavior are designed.
-* Build and test one focused native journey on real Android and iOS devices: sign in, browse recipes, and create a recipe or capture a photo.
+* Build and test a complete native journey on real Android and iOS devices: sign in, browse, create, edit, and delete recipes, manage a cover image, and capture or import a draft.
 * GitHub Actions now compiles the Android target. Add iOS builds and signing when Apple signing credentials and macOS build infrastructure are available.
 
 Keep scalability without overbuilding

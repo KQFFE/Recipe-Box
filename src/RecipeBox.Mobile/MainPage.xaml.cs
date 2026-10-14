@@ -9,6 +9,7 @@ public partial class MainPage : ContentPage
     private bool isBusy;
     private bool isSignedIn;
     private int currentPage;
+    private int? editingRecipeId;
 
     public MainPage(MobileApiClient apiClient)
     {
@@ -100,22 +101,32 @@ public partial class MainPage : ContentPage
         await RunBusyOperationAsync(async () =>
         {
             var languageCode = LanguagePicker.SelectedIndex == 1 ? "sv" : "en";
-            await apiClient.CreateRecipeAsync(
-                serverAddress,
-                new RecipeWriteRequest(
-                    TitleEntry.Text ?? string.Empty,
-                    DescriptionEntry.Text,
-                    languageCode,
-                    SplitLines(IngredientsEditor.Text),
-                    SplitLines(InstructionsEditor.Text)));
+            var recipe = new RecipeWriteRequest(
+                TitleEntry.Text ?? string.Empty,
+                DescriptionEntry.Text,
+                languageCode,
+                SplitLines(IngredientsEditor.Text),
+                SplitLines(InstructionsEditor.Text));
+            if (editingRecipeId is int recipeId)
+            {
+                await apiClient.UpdateRecipeAsync(serverAddress, recipeId, recipe);
+                ResetRecipeForm();
+                await LoadRecipesAsync();
+                StatusLabel.Text = "Recipe updated.";
+                return;
+            }
 
-            TitleEntry.Text = string.Empty;
-            DescriptionEntry.Text = string.Empty;
-            IngredientsEditor.Text = string.Empty;
-            InstructionsEditor.Text = string.Empty;
-            StatusLabel.Text = "Recipe saved.";
+            await apiClient.CreateRecipeAsync(serverAddress, recipe);
+            ResetRecipeForm();
             await LoadRecipesAsync();
+            StatusLabel.Text = "Recipe saved.";
         });
+    }
+
+    private void OnCancelEditClicked(object? sender, EventArgs e)
+    {
+        ResetRecipeForm();
+        StatusLabel.Text = "Editing cancelled.";
     }
 
     private async void OnCapturePhotoClicked(object? sender, EventArgs e)
@@ -161,6 +172,62 @@ public partial class MainPage : ContentPage
                 serverAddress,
                 ImportUrlEntry.Text ?? string.Empty);
             ShowDraftForReview(draft);
+        });
+    }
+
+    private async void OnChooseCoverImageClicked(object? sender, EventArgs e)
+    {
+        if (editingRecipeId is not int recipeId
+            || !TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            var photo = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Choose a recipe cover image",
+                FileTypes = FilePickerFileType.Images
+            });
+            if (photo is null)
+            {
+                return;
+            }
+
+            await using var photoStream = await photo.OpenReadAsync();
+            var (bytes, contentType, fileName) = await ReadPhotoAsync(photoStream);
+            await apiClient.UploadRecipeImageAsync(
+                serverAddress,
+                recipeId,
+                bytes,
+                contentType,
+                fileName);
+            await LoadEditingCoverImageAsync(serverAddress, recipeId);
+            StatusLabel.Text = "Cover image updated.";
+        });
+    }
+
+    private async void OnRemoveCoverImageClicked(object? sender, EventArgs e)
+    {
+        if (editingRecipeId is not int recipeId
+            || !await DisplayAlertAsync(
+                "Remove cover image?",
+                "This removes the cover image from this recipe.",
+                "Remove",
+                "Cancel")
+            || !TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            await apiClient.DeleteRecipeImageAsync(serverAddress, recipeId);
+            CoverImage.Source = null;
+            CoverImage.IsVisible = false;
+            RemoveCoverImageButton.IsVisible = false;
+            StatusLabel.Text = "Cover image removed.";
         });
     }
 
@@ -259,6 +326,18 @@ public partial class MainPage : ContentPage
         content.Children.Add(toggleDetailsButton);
         content.Children.Add(details);
 
+        var recipeActions = new HorizontalStackLayout { Spacing = 8 };
+        var editButton = new Button { Text = "Edit" };
+        editButton.Clicked += async (_, _) =>
+        {
+            await RunBusyOperationAsync(() => BeginEditingRecipeAsync(recipe));
+        };
+        var deleteButton = new Button { Text = "Delete" };
+        deleteButton.Clicked += async (_, _) => await DeleteRecipeAsync(recipe);
+        recipeActions.Children.Add(editButton);
+        recipeActions.Children.Add(deleteButton);
+        content.Children.Add(recipeActions);
+
         return new Border
         {
             Padding = 14,
@@ -266,6 +345,87 @@ public partial class MainPage : ContentPage
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
             Content = content
         };
+    }
+
+    private async Task BeginEditingRecipeAsync(RecipeResponse recipe)
+    {
+        if (!TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        editingRecipeId = recipe.Id;
+        RecipeFormHeading.Text = "Edit recipe";
+        CreateButton.Text = "Save changes";
+        CancelEditButton.IsVisible = true;
+        CapturePhotoButton.IsVisible = false;
+        ImportUrlEntry.IsVisible = false;
+        ImportUrlButton.IsVisible = false;
+        ChooseCoverImageButton.IsVisible = true;
+        TitleEntry.Text = recipe.Title;
+        DescriptionEntry.Text = recipe.Description;
+        LanguagePicker.SelectedIndex = recipe.LanguageCode == "sv" ? 1 : 0;
+        IngredientsEditor.Text = string.Join(Environment.NewLine, recipe.Ingredients);
+        InstructionsEditor.Text = string.Join(Environment.NewLine, recipe.Instructions);
+        await LoadEditingCoverImageAsync(serverAddress, recipe.Id);
+        StatusLabel.Text = $"Editing {recipe.Title}.";
+        await PageScrollView.ScrollToAsync(TitleEntry, ScrollToPosition.Start, animated: true);
+    }
+
+    private async Task LoadEditingCoverImageAsync(Uri serverAddress, int recipeId)
+    {
+        var imageBytes = await apiClient.GetRecipeImageAsync(serverAddress, recipeId);
+        CoverImage.Source = imageBytes is null
+            ? null
+            : ImageSource.FromStream(() => new MemoryStream(imageBytes));
+        CoverImage.IsVisible = imageBytes is not null;
+        RemoveCoverImageButton.IsVisible = imageBytes is not null;
+    }
+
+    private async Task DeleteRecipeAsync(RecipeResponse recipe)
+    {
+        if (isBusy
+            || !await DisplayAlertAsync(
+                "Delete recipe?",
+                $"Delete \"{recipe.Title}\" and its cover image? This cannot be undone.",
+                "Delete",
+                "Cancel")
+            || !TryGetServerAddress(out var serverAddress))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            await apiClient.DeleteRecipeAsync(serverAddress, recipe.Id);
+            if (editingRecipeId == recipe.Id)
+            {
+                ResetRecipeForm();
+            }
+
+            await LoadRecipesAsync();
+            StatusLabel.Text = "Recipe deleted.";
+        });
+    }
+
+    private void ResetRecipeForm()
+    {
+        editingRecipeId = null;
+        RecipeFormHeading.Text = "Add a recipe";
+        CreateButton.Text = "Save recipe";
+        CancelEditButton.IsVisible = false;
+        CapturePhotoButton.IsVisible = true;
+        ImportUrlEntry.IsVisible = true;
+        ImportUrlButton.IsVisible = true;
+        ChooseCoverImageButton.IsVisible = false;
+        RemoveCoverImageButton.IsVisible = false;
+        CoverImage.Source = null;
+        CoverImage.IsVisible = false;
+        TitleEntry.Text = string.Empty;
+        DescriptionEntry.Text = string.Empty;
+        LanguagePicker.SelectedIndex = 0;
+        IngredientsEditor.Text = string.Empty;
+        InstructionsEditor.Text = string.Empty;
     }
 
     private void ShowDraftForReview(RecipeDraftResponse draft)
@@ -394,7 +554,10 @@ public partial class MainPage : ContentPage
         CapturePhotoButton.IsEnabled = enabled;
         ImportUrlButton.IsEnabled = enabled;
         ImportUrlEntry.IsEnabled = enabled;
+        ChooseCoverImageButton.IsEnabled = enabled;
+        RemoveCoverImageButton.IsEnabled = enabled;
         CreateButton.IsEnabled = enabled;
+        CancelEditButton.IsEnabled = enabled;
     }
 
     private static string[] SplitLines(string? value) =>

@@ -121,6 +121,93 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task UpdateRecipeAsync(
+        Uri serverAddress,
+        int recipeId,
+        RecipeWriteRequest recipe,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Put,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}"),
+            serverAddress,
+            cancellationToken);
+        request.Content = JsonContent.Create(recipe, options: JsonOptions);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteRecipeAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Delete,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}"),
+            serverAddress,
+            cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<byte[]?> GetRecipeImageAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Get,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}/image"),
+            serverAddress,
+            cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task UploadRecipeImageAsync(
+        Uri serverAddress,
+        int recipeId,
+        byte[] imageBytes,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Post,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}/image"),
+            serverAddress,
+            cancellationToken);
+        using var multipart = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(imageBytes);
+        imageContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        multipart.Add(imageContent, "image", fileName);
+        request.Content = multipart;
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteRecipeImageAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Delete,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}/image"),
+            serverAddress,
+            cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<RecipeDraftResponse> ExtractPhotoDraftAsync(
         Uri serverAddress,
         byte[] photoBytes,
