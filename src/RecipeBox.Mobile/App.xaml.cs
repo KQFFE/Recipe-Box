@@ -1,16 +1,17 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
 namespace RecipeBox.Mobile;
 
 public partial class App : Application
 {
-	public App()
+	private readonly MobileApiClient mobileApiClient;
+
+	public App(MobileApiClient mobileApiClient)
 	{
 		InitializeComponent();
+		this.mobileApiClient = mobileApiClient;
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		return new Window(new AppShell());
+		return new Window(new MainPage(mobileApiClient));
 	}
 }

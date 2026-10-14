@@ -1,34 +1,107 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="RecipeBox.Mobile.MainPage">
-
+             x:Class="RecipeBox.Mobile.MainPage"
+             Title="Recipe Box">
     <ScrollView>
-        <VerticalStackLayout
-            Padding="24"
-            Spacing="20">
-
+        <VerticalStackLayout Padding="24" Spacing="16">
             <Label
                 Text="Recipe Box"
                 Style="{StaticResource Headline}"
                 SemanticProperties.HeadingLevel="Level1" />
 
-            <Border
-                Padding="20"
-                Stroke="{StaticResource Gray200}"
-                StrokeShape="RoundRectangle 12">
-                <VerticalStackLayout Spacing="12">
-                    <Label
-                        Text="Your recipes, all in one place."
-                        Style="{StaticResource SubHeadline}"
-                        SemanticProperties.HeadingLevel="Level2" />
+            <Label
+                Text="Sign in with your Recipe Box account to access your recipes."
+                LineBreakMode="WordWrap" />
 
-                    <Label
-                        Text="The native app is getting started. It will connect to your Recipe Box account after the secure mobile API is ready."
-                        LineBreakMode="WordWrap" />
-                </VerticalStackLayout>
-            </Border>
+            <Entry
+                x:Name="ServerAddressEntry"
+                Placeholder="https://recipes.example.com"
+                Keyboard="Url"
+                ClearButtonVisibility="WhileEditing"
+                SemanticProperties.Description="Recipe Box server address" />
+
+            <HorizontalStackLayout Spacing="12">
+                <Button
+                    x:Name="SignInButton"
+                    Text="Sign in"
+                    Clicked="OnSignInClicked"
+                    SemanticProperties.Description="Sign in to Recipe Box" />
+                <Button
+                    x:Name="SignOutButton"
+                    Text="Sign out"
+                    IsVisible="False"
+                    Clicked="OnSignOutClicked" />
+            </HorizontalStackLayout>
+
+            <Label
+                x:Name="StatusLabel"
+                Text="Enter the HTTPS address of your Recipe Box server."
+                LineBreakMode="WordWrap" />
+
+            <VerticalStackLayout
+                x:Name="RecipesSection"
+                IsVisible="False"
+                Spacing="16">
+                <Label
+                    Text="Your recipes"
+                    Style="{StaticResource SubHeadline}"
+                    SemanticProperties.HeadingLevel="Level2" />
+
+                <Button
+                    x:Name="RefreshButton"
+                    Text="Refresh recipes"
+                    Clicked="OnRefreshClicked" />
+
+                <VerticalStackLayout
+                    x:Name="RecipeList"
+                    Spacing="10" />
+                <Button
+                    x:Name="LoadMoreButton"
+                    Text="Load more recipes"
+                    IsVisible="False"
+                    Clicked="OnLoadMoreClicked" />
+
+                <BoxView HeightRequest="1" Color="{StaticResource Gray200}" />
+
+                <Label
+                    Text="Add a recipe"
+                    Style="{StaticResource SubHeadline}"
+                    SemanticProperties.HeadingLevel="Level2" />
+
+                <Entry
+                    x:Name="TitleEntry"
+                    Placeholder="Recipe title"
+                    MaxLength="160"
+                    ReturnType="Next" />
+                <Entry
+                    x:Name="DescriptionEntry"
+                    Placeholder="Description (optional)"
+                    MaxLength="2000"
+                    ReturnType="Next" />
+                <Picker
+                    x:Name="LanguagePicker"
+                    Title="Recipe language">
+                    <Picker.Items>
+                        <x:String>English</x:String>
+                        <x:String>Swedish</x:String>
+                    </Picker.Items>
+                </Picker>
+                <Editor
+                    x:Name="IngredientsEditor"
+                    Placeholder="Ingredients, one per line"
+                    AutoSize="TextChanges"
+                    MinimumHeightRequest="90" />
+                <Editor
+                    x:Name="InstructionsEditor"
+                    Placeholder="Instructions, one per line"
+                    AutoSize="TextChanges"
+                    MinimumHeightRequest="90" />
+                <Button
+                    x:Name="CreateButton"
+                    Text="Save recipe"
+                    Clicked="OnCreateClicked" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
-
 </ContentPage>

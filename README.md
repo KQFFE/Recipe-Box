@@ -6,7 +6,7 @@ The project is intentionally growing through small, testable workflows. Recipe p
 
 The website supports phone-sized screens and can be used in a mobile browser. Native Android and iOS apps are in progress; a PWA is not a required part of that work. See [Roadmap.md](./Roadmap.md).
 
-A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. The authenticated OAuth sign-in issuer and initial owner-scoped recipe API are implemented; the native app is still a starter shell and is not connected to them yet.
+A .NET MAUI app in `src\RecipeBox.Mobile` now signs in through the system browser and can browse and create recipes through the authenticated API. See the [mobile development setup](#native-mobile-development-prerequisites) before running it on a device.
 
 ## Accessibility standard
 
@@ -40,16 +40,16 @@ The app uses the standard ASP.NET Core Identity UI. Account confirmation is requ
 
 ## Mobile API and sign-in design
 
-The mobile app will use the existing ASP.NET Core Identity accounts and recipe database. It will not create a second account store or ask users to create a separate mobile password.
+The mobile app uses the existing ASP.NET Core Identity accounts and recipe database. It does not create a second account store or ask users to create a separate mobile password.
 
 OpenIddict now provides the authorization-code issuer and local bearer-token validation. The first version of the recipe API is available under `/api/v1/recipes`; it supports paged list, detail, create, update, and delete operations. Unit/HTTP tests exercise token issuance with PKCE, bearer-token validation, required scopes, recipe validation, and owner isolation.
 
 ### Sign-in
 
 * The web app hosts OpenID Connect/OAuth endpoints with OpenIddict, integrated with ASP.NET Core Identity for its existing login, account-confirmation, and lockout rules. Identity remains the user store; OpenIddict persists authorization/token state through EF Core.
-* The native app will use the OAuth 2.0 authorization-code flow with PKCE, launched in the device's system browser. The app is a public client: it must not contain a client secret or collect the Identity password in a native form.
-* After sign-in, the app will send short-lived bearer access tokens to the API. Refresh tokens are not enabled yet; if added, they must rotate and be stored only in platform secure storage. Sign-out must discard tokens and revoke them where supported.
-* Register only exact native redirect URIs. Prefer verified Android App Links and iOS Universal Links for production; do not accept arbitrary redirect URIs. Require HTTPS for the issuer and API outside local development.
+* The native app uses the OAuth 2.0 authorization-code flow with PKCE, launched in the device's system browser. It is a public client: it contains no client secret and does not collect the Identity password in a native form.
+* After sign-in, the app sends short-lived bearer access tokens to the API. Tokens are stored with platform secure storage and discarded on sign-out or expiry. Refresh tokens are not enabled, so the user signs in again when the access token expires.
+* The current native callback is the exact registered custom URI `com.kqffe.recipebox://callback`. Prefer verified Android App Links and iOS Universal Links before production release; do not accept arbitrary redirect URIs. Require HTTPS for the issuer and API.
 * The API accepts tokens from this issuer and requires the `recipebox-api` audience and appropriate scopes. A valid token identifies the owner; clients must never choose or submit an owner ID.
 
 ### Initial API contract
@@ -68,7 +68,7 @@ Recipe reads and writes filter by the authenticated user's subject/Identity ID, 
 
 Use `openid`, `profile`, and `email` for sign-in and identity, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. The API currently limits request bodies to 64 KiB and allows 60 requests per minute per remote IP address; use HTTPS in deployed environments.
 
-The first mobile release should require a network connection. Offline caching and edits need a separate privacy and synchronization design; do not cache private recipe responses by default. Recipe photo OCR and website import can be exposed through authenticated API operations after the basic sign-in and recipe journey is working.
+The mobile app currently requires a network connection and supports paged recipe browsing and recipe creation. Offline caching and edits need a separate privacy and synchronization design; private recipe responses are not cached. Recipe photo OCR and website import can be exposed through authenticated API operations after the basic sign-in and recipe journey is working.
 
 For production, configure `Authentication__Issuer` as the stable HTTPS issuer/API address and provide separate PKCS#12 certificates using `OpenIddict__SigningCertificatePath`, `OpenIddict__SigningCertificatePassword`, `OpenIddict__EncryptionCertificatePath`, and `OpenIddict__EncryptionCertificatePassword`. Use durable protected certificate storage, plan certificate rotation, and keep the certificate files/passwords and provider credentials out of source control. Configure a verified email sender for confirmed accounts. iOS signing and App Store delivery additionally require Apple developer credentials and macOS/Xcode build infrastructure.
 
@@ -98,8 +98,12 @@ The MAUI project targets Android and iOS. Building for a platform requires its n
 
 * **Android:** install the MAUI workload (`dotnet workload install maui`), JDK 17, and Android SDK Platform 36 plus Build-Tools 36.0.0. Android Studio can install Android SDK components through its SDK Manager. The GitHub Actions Android job provisions these tools on its hosted runner.
 * **iOS:** use a Mac with Xcode installed and configured, then install the MAUI workload (`dotnet workload install maui`). On Windows, pair Visual Studio with a reachable Mac build host; iOS apps cannot be built or signed on Windows alone.
+* **Windows desktop:** the project can compile for Windows, but MAUI's `WebAuthenticator` does not support Windows sign-in. The interactive authentication journey is for Android and iOS.
 * **Device distribution:** Apple signing and App Store submission require Apple developer credentials. Android release signing also requires a protected signing key; do not put signing keys or passwords in the repository.
 * **Authentication/API:** no extra local secret is needed for Development or automated tests; OpenIddict generates development certificates. Production hosting must provide the HTTPS issuer and separate signing/encryption certificates listed in the [mobile API setup](#mobile-api-and-sign-in-design).
+* **Running on a device:** start the web app at an HTTPS address reachable from the device, with a TLS certificate the device trusts. On the first app launch, enter that server's base address (issuer and API share the same host); the app remembers it. `localhost` on a phone refers to the phone, not the development computer. Do not disable TLS certificate validation or use an untrusted certificate to work around connection errors.
+* **Local server certificates:** the ASP.NET Core Development certificate is intended for local development and is not automatically trusted by Android or iOS devices. For device testing, use a trusted development certificate and a hostname/address reachable from the device, or test against an HTTPS deployment. The app intentionally accepts HTTPS addresses only.
+* **Sign-in behavior:** the app requests `openid`, `profile`, `email`, `recipes.read`, and `recipes.write`. Access tokens expire after 10 minutes and there is no refresh token yet, so sign in again after expiry. The app's Android intent filter and iOS URL scheme must continue to match the exact registered redirect URI.
 
 After installing prerequisites, verify the Android target can be built:
 

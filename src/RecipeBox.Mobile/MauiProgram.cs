@@ -14,6 +14,12 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
+		builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
+		{
+			AllowAutoRedirect = false
+		}));
+		builder.Services.AddSingleton<MobileTokenStore>();
+		builder.Services.AddSingleton<MobileApiClient>();
 
 #if DEBUG
 		builder.Logging.AddDebug();
