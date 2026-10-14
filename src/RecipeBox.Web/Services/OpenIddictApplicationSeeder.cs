@@ -32,28 +32,38 @@ public static class OpenIddictApplicationSeeder
         }
 
         var applicationManager = services.GetRequiredService<IOpenIddictApplicationManager>();
-        if (await applicationManager.FindByClientIdAsync(MobileClientId, cancellationToken) is null)
+        var application = await applicationManager.FindByClientIdAsync(MobileClientId, cancellationToken);
+        var descriptor = new OpenIddictApplicationDescriptor
         {
-            await applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
+            ClientId = MobileClientId,
+            ClientType = ClientTypes.Public,
+            ConsentType = ConsentTypes.Implicit,
+            DisplayName = "Recipe Box mobile app",
+            RedirectUris = { new Uri(MobileRedirectUri) },
+            Permissions =
             {
-                ClientId = MobileClientId,
-                ClientType = ClientTypes.Public,
-                ConsentType = ConsentTypes.Implicit,
-                DisplayName = "Recipe Box mobile app",
-                RedirectUris = { new Uri(MobileRedirectUri) },
-                Permissions =
-                {
-                    Permissions.Endpoints.Authorization,
-                    Permissions.Endpoints.Token,
-                    Permissions.GrantTypes.AuthorizationCode,
-                    Permissions.ResponseTypes.Code,
-                    Permissions.Scopes.Email,
-                    Permissions.Scopes.Profile,
-                    Permissions.Prefixes.Scope + Scopes.OpenId,
-                    Permissions.Prefixes.Scope + "recipes.read",
-                    Permissions.Prefixes.Scope + "recipes.write"
-                }
-            }, cancellationToken);
+                Permissions.Endpoints.Authorization,
+                Permissions.Endpoints.Token,
+                Permissions.Endpoints.Revocation,
+                Permissions.GrantTypes.AuthorizationCode,
+                Permissions.GrantTypes.RefreshToken,
+                Permissions.ResponseTypes.Code,
+                Permissions.Scopes.Email,
+                Permissions.Scopes.Profile,
+                Permissions.Prefixes.Scope + Scopes.OfflineAccess,
+                Permissions.Prefixes.Scope + Scopes.OpenId,
+                Permissions.Prefixes.Scope + "recipes.read",
+                Permissions.Prefixes.Scope + "recipes.write"
+            }
+        };
+
+        if (application is null)
+        {
+            await applicationManager.CreateAsync(descriptor, cancellationToken);
+        }
+        else
+        {
+            await applicationManager.UpdateAsync(application, descriptor, cancellationToken);
         }
     }
 }

@@ -11,17 +11,18 @@ public sealed class MobileTokenStore
         Uri serverAddress,
         string accessToken,
         DateTimeOffset expiresAtUtc,
+        string? refreshToken,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var session = new StoredSession(serverAddress.AbsoluteUri, accessToken, expiresAtUtc);
+        var session = new StoredSession(serverAddress.AbsoluteUri, accessToken, expiresAtUtc, refreshToken);
         await SecureStorage.Default.SetAsync(
             TokenStorageKey,
             JsonSerializer.Serialize(session, JsonOptions));
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    public async Task<string?> GetValidTokenAsync(
+    public async Task<StoredSession?> GetSessionAsync(
         Uri serverAddress,
         CancellationToken cancellationToken = default)
     {
@@ -36,13 +37,13 @@ public sealed class MobileTokenStore
         var session = JsonSerializer.Deserialize<StoredSession>(storedSession, JsonOptions)
             ?? throw new JsonException("The saved sign-in session is invalid.");
         if (!string.Equals(session.ServerAddress, serverAddress.AbsoluteUri, StringComparison.Ordinal)
-            || session.ExpiresAtUtc <= DateTimeOffset.UtcNow.AddSeconds(30))
+            || string.IsNullOrWhiteSpace(session.AccessToken))
         {
             await ClearAsync(cancellationToken);
             return null;
         }
 
-        return session.AccessToken;
+        return session;
     }
 
     public Task ClearAsync(CancellationToken cancellationToken = default)
@@ -52,8 +53,9 @@ public sealed class MobileTokenStore
         return Task.CompletedTask;
     }
 
-    private sealed record StoredSession(
+    public sealed record StoredSession(
         string ServerAddress,
         string AccessToken,
-        DateTimeOffset ExpiresAtUtc);
+        DateTimeOffset ExpiresAtUtc,
+        string? RefreshToken = null);
 }

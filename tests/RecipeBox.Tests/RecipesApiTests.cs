@@ -213,6 +213,11 @@ public sealed class RecipesApiTests
             discovery.RootElement.GetProperty("grant_types_supported")
                 .EnumerateArray()
                 .Select(value => value.GetString()));
+        Assert.Contains(
+            "refresh_token",
+            discovery.RootElement.GetProperty("grant_types_supported")
+                .EnumerateArray()
+                .Select(value => value.GetString()));
         Assert.EndsWith(
             "/connect/authorize",
             discovery.RootElement.GetProperty("authorization_endpoint").GetString(),
@@ -229,7 +234,7 @@ public sealed class RecipesApiTests
             "/connect/authorize?client_id=recipebox-mobile"
             + "&redirect_uri=com.kqffe.recipebox%3A%2F%2Fcallback"
             + "&response_type=code"
-            + "&scope=openid%20profile%20recipes.read%20recipes.write"
+            + "&scope=openid%20profile%20offline_access%20recipes.read%20recipes.write"
             + $"&code_challenge={codeChallenge}"
             + "&code_challenge_method=S256"
             + "&state=mobile-test-state");
@@ -256,12 +261,51 @@ public sealed class RecipesApiTests
         Assert.True(tokens.RootElement.TryGetProperty("access_token", out var accessToken));
         var bearerToken = accessToken.GetString();
         Assert.False(string.IsNullOrWhiteSpace(bearerToken));
+        Assert.True(tokens.RootElement.TryGetProperty("refresh_token", out var refreshToken));
+        var currentRefreshToken = refreshToken.GetString();
+        Assert.False(string.IsNullOrWhiteSpace(currentRefreshToken));
+
+        var refreshResponse = await client.PostAsync(
+            "/connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = "recipebox-mobile",
+                ["refresh_token"] = currentRefreshToken!
+            }));
+        Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
+        using var refreshedTokens = JsonDocument.Parse(await refreshResponse.Content.ReadAsStringAsync());
+        bearerToken = refreshedTokens.RootElement.GetProperty("access_token").GetString();
+        currentRefreshToken = refreshedTokens.RootElement.GetProperty("refresh_token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(bearerToken));
+        Assert.False(string.IsNullOrWhiteSpace(currentRefreshToken));
+        Assert.NotEqual(refreshToken.GetString(), currentRefreshToken);
 
         using var apiRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/recipes");
         apiRequest.Headers.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
         var apiResponse = await client.SendAsync(apiRequest);
         Assert.Equal(HttpStatusCode.OK, apiResponse.StatusCode);
+
+        var revokeResponse = await client.PostAsync(
+            "/connect/revoke",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = "recipebox-mobile",
+                ["token"] = currentRefreshToken!,
+                ["token_type_hint"] = "refresh_token"
+            }));
+        Assert.Equal(HttpStatusCode.OK, revokeResponse.StatusCode);
+
+        var revokedRefreshResponse = await client.PostAsync(
+            "/connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = "recipebox-mobile",
+                ["refresh_token"] = currentRefreshToken!
+            }));
+        Assert.Equal(HttpStatusCode.BadRequest, revokedRefreshResponse.StatusCode);
     }
 
     [Fact]

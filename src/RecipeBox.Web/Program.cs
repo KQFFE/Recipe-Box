@@ -69,14 +69,18 @@ builder.Services.AddOpenIddict()
 
         options.SetAuthorizationEndpointUris("/connect/authorize")
             .SetTokenEndpointUris("/connect/token")
+            .SetRevocationEndpointUris("/connect/revoke")
             .AllowAuthorizationCodeFlow()
+            .AllowRefreshTokenFlow()
             .RequireProofKeyForCodeExchange()
             .RegisterScopes(
                 OpenIddictConstants.Scopes.Email,
                 OpenIddictConstants.Scopes.Profile,
+                OpenIddictConstants.Scopes.OfflineAccess,
                 "recipes.read",
                 "recipes.write")
-            .SetAccessTokenLifetime(TimeSpan.FromMinutes(10));
+            .SetAccessTokenLifetime(TimeSpan.FromMinutes(10))
+            .SetRefreshTokenLifetime(TimeSpan.FromDays(30));
 
         if (useDevelopmentKeys)
         {

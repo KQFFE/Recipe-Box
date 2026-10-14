@@ -12,9 +12,10 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
     public const string ServerAddressPreferenceKey = "mobile.server-address";
     private const string ClientId = "recipebox-mobile";
     private const string RedirectUri = "com.kqffe.recipebox://callback";
-    private const string RequestedScopes = "openid profile email recipes.read recipes.write";
+    private const string RequestedScopes = "openid profile email offline_access recipes.read recipes.write";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly SemaphoreSlim refreshLock = new(1, 1);
 
     public async Task SignInAsync(Uri serverAddress, CancellationToken cancellationToken = default)
     {
@@ -80,28 +81,13 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
 
         using var tokenDocument = JsonDocument.Parse(responseBody);
         var root = tokenDocument.RootElement;
-        var accessToken = root.GetProperty("access_token").GetString();
-        if (string.IsNullOrWhiteSpace(accessToken)
-            || !root.TryGetProperty("token_type", out var tokenType)
-            || !string.Equals(tokenType.GetString(), "Bearer", StringComparison.OrdinalIgnoreCase)
-            || !root.TryGetProperty("expires_in", out var expiresInElement)
-            || !expiresInElement.TryGetInt64(out var expiresInSeconds)
-            || expiresInSeconds <= 0)
-        {
-            throw new JsonException("The sign-in server returned an invalid access token response.");
-        }
-
-        await tokenStore.SaveAsync(
-            serverAddress,
-            accessToken,
-            DateTimeOffset.UtcNow.AddSeconds(expiresInSeconds),
-            cancellationToken);
+        await SaveTokenResponseAsync(serverAddress, responseBody, null, cancellationToken);
     }
 
-    public async Task<bool> HasValidAccessTokenAsync(
+    public async Task<bool> HasStoredSessionAsync(
         Uri serverAddress,
         CancellationToken cancellationToken = default) =>
-        await tokenStore.GetValidTokenAsync(serverAddress, cancellationToken) is not null;
+        await tokenStore.GetSessionAsync(serverAddress, cancellationToken) is not null;
 
     public async Task<RecipeListResponse> GetRecipesAsync(
         Uri serverAddress,
@@ -145,8 +131,39 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public Task SignOutAsync(CancellationToken cancellationToken = default) =>
-        tokenStore.ClearAsync(cancellationToken);
+    public async Task SignOutAsync(
+        Uri serverAddress,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await tokenStore.GetSessionAsync(serverAddress, cancellationToken);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(session?.RefreshToken))
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    new Uri(serverAddress, "connect/revoke"))
+                {
+                    Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        ["client_id"] = ClientId,
+                        ["token"] = session.RefreshToken,
+                        ["token_type_hint"] = "refresh_token"
+                    })
+                };
+                using var response = await httpClient.SendAsync(request, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    throw CreateOAuthException(response.StatusCode, responseBody);
+                }
+            }
+        }
+        finally
+        {
+            await tokenStore.ClearAsync(CancellationToken.None);
+        }
+    }
 
     private async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(
         HttpMethod method,
@@ -154,7 +171,7 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         Uri serverAddress,
         CancellationToken cancellationToken)
     {
-        var accessToken = await tokenStore.GetValidTokenAsync(serverAddress, cancellationToken);
+        var accessToken = await GetAccessTokenAsync(serverAddress, cancellationToken);
         if (accessToken is null)
         {
             throw new MobileApiException(
@@ -165,6 +182,119 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         var request = new HttpRequestMessage(method, requestUri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return request;
+    }
+
+    private async Task<string?> GetAccessTokenAsync(
+        Uri serverAddress,
+        CancellationToken cancellationToken)
+    {
+        var session = await tokenStore.GetSessionAsync(serverAddress, cancellationToken);
+        if (session is null)
+        {
+            return null;
+        }
+
+        if (session.ExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1))
+        {
+            return session.AccessToken;
+        }
+
+        if (string.IsNullOrWhiteSpace(session.RefreshToken))
+        {
+            await tokenStore.ClearAsync(cancellationToken);
+            return null;
+        }
+
+        await refreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            session = await tokenStore.GetSessionAsync(serverAddress, cancellationToken);
+            if (session is null)
+            {
+                return null;
+            }
+
+            if (session.ExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1))
+            {
+                return session.AccessToken;
+            }
+
+            if (string.IsNullOrWhiteSpace(session.RefreshToken))
+            {
+                await tokenStore.ClearAsync(cancellationToken);
+                return null;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(serverAddress, "connect/token"))
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["client_id"] = ClientId,
+                    ["refresh_token"] = session.RefreshToken
+                })
+            };
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    await tokenStore.ClearAsync(cancellationToken);
+                }
+
+                throw CreateOAuthException(response.StatusCode, responseBody);
+            }
+
+            await SaveTokenResponseAsync(
+                serverAddress,
+                responseBody,
+                session.RefreshToken,
+                cancellationToken);
+
+            var refreshedSession = await tokenStore.GetSessionAsync(serverAddress, cancellationToken);
+            return refreshedSession?.AccessToken
+                ?? throw new JsonException("The refreshed sign-in session could not be loaded.");
+        }
+        finally
+        {
+            refreshLock.Release();
+        }
+    }
+
+    private async Task SaveTokenResponseAsync(
+        Uri serverAddress,
+        string responseBody,
+        string? previousRefreshToken,
+        CancellationToken cancellationToken)
+    {
+        using var tokenDocument = JsonDocument.Parse(responseBody);
+        var root = tokenDocument.RootElement;
+        var accessToken = root.GetProperty("access_token").GetString();
+        if (string.IsNullOrWhiteSpace(accessToken)
+            || !root.TryGetProperty("token_type", out var tokenType)
+            || !string.Equals(tokenType.GetString(), "Bearer", StringComparison.OrdinalIgnoreCase)
+            || !root.TryGetProperty("expires_in", out var expiresInElement)
+            || !expiresInElement.TryGetInt64(out var expiresInSeconds)
+            || expiresInSeconds <= 0)
+        {
+            throw new JsonException("The sign-in server returned an invalid access token response.");
+        }
+
+        var refreshToken = root.TryGetProperty("refresh_token", out var refreshTokenElement)
+            ? refreshTokenElement.GetString()
+            : previousRefreshToken;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            throw new JsonException("The sign-in server did not issue a refresh token.");
+        }
+
+        await tokenStore.SaveAsync(
+            serverAddress,
+            accessToken,
+            DateTimeOffset.UtcNow.AddSeconds(expiresInSeconds),
+            refreshToken,
+            cancellationToken);
     }
 
     private static async Task EnsureSuccessAsync(

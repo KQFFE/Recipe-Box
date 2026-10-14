@@ -28,7 +28,7 @@ public partial class MainPage : ContentPage
 
         try
         {
-            if (await apiClient.HasValidAccessTokenAsync(serverAddress))
+            if (await apiClient.HasStoredSessionAsync(serverAddress))
             {
                 SetSignedIn(true);
                 await LoadRecipesAsync();
@@ -36,6 +36,11 @@ public partial class MainPage : ContentPage
         }
         catch (Exception exception) when (IsExpectedClientException(exception))
         {
+            if (exception is MobileApiException { StatusCode: System.Net.HttpStatusCode.Unauthorized })
+            {
+                SetSignedIn(false);
+            }
+
             StatusLabel.Text = exception.Message;
         }
     }
@@ -61,10 +66,17 @@ public partial class MainPage : ContentPage
     {
         await RunBusyOperationAsync(async () =>
         {
-            await apiClient.SignOutAsync();
-            RecipeList.Children.Clear();
-            SetSignedIn(false);
-            StatusLabel.Text = "You have been signed out.";
+            try
+            {
+                await apiClient.SignOutAsync(
+                    new Uri(Preferences.Default.Get(MobileApiClient.ServerAddressPreferenceKey, string.Empty)));
+                StatusLabel.Text = "You have been signed out.";
+            }
+            finally
+            {
+                RecipeList.Children.Clear();
+                SetSignedIn(false);
+            }
         });
     }
 

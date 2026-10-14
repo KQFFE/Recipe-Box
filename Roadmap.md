@@ -13,7 +13,7 @@ The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` now 
 
 Next:
 
-* [Complete] Implement the OpenID Connect issuer with ASP.NET Core Identity and OAuth authorization-code sign-in with PKCE for the native public client. Keep passwords in the system-browser Identity flow; do not embed a client secret in the app.
+* [Complete] Implement the OpenID Connect issuer with ASP.NET Core Identity and OAuth authorization-code sign-in with PKCE and rotating refresh tokens for the native public client. Keep passwords in the system-browser Identity flow; do not embed a client secret in the app.
 * [Complete] Implement the versioned bearer-token recipe API with owner-scoped DTO endpoints and tests for authentication, validation, and cross-account isolation.
 * [Implemented] Add mobile sign-in and the browse/create recipe journey against the API. Add owner-authorized image endpoints before supporting private image display or uploads.
 * Add owner-authorized image endpoints, then expose photo capture and recipe URL import through authenticated operations.
