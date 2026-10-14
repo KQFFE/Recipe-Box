@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenIddict.Abstractions;
 using RecipeBox.Web.Data;
 using RecipeBox.Web.Models;
 using RecipeBox.Web.Services;
@@ -20,6 +21,8 @@ namespace RecipeBox.Tests;
 public sealed class RecipeAppFactory : WebApplicationFactory<Program>
 {
     public const string TestUserId = "recipe-test-user";
+
+    public bool UseTestApiAuthorization { get; set; } = true;
 
     public TestRecipeTextExtractor TextExtractor { get; } = new();
 
@@ -60,6 +63,21 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
                 .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                     TestAuthenticationHandler.AuthenticationScheme,
                     _ => { });
+
+            if (UseTestApiAuthorization)
+            {
+                services.AddAuthorization(options =>
+                {
+                    options.AddPolicy("RecipeRead", policy =>
+                        policy.AddAuthenticationSchemes(TestAuthenticationHandler.AuthenticationScheme)
+                            .RequireAuthenticatedUser()
+                            .RequireClaim("scope", "recipes.read"));
+                    options.AddPolicy("RecipeWrite", policy =>
+                        policy.AddAuthenticationSchemes(TestAuthenticationHandler.AuthenticationScheme)
+                            .RequireAuthenticatedUser()
+                            .RequireClaim("scope", "recipes.write"));
+                });
+            }
         });
     }
 
@@ -165,9 +183,16 @@ public sealed class TestAuthenticationHandler(
         var userId = Request.Headers.TryGetValue("X-Test-UserId", out var requestedUserId)
             ? requestedUserId.ToString()
             : RecipeAppFactory.TestUserId;
-        var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, userId)],
-            AuthenticationScheme);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId),
+            new(OpenIddictConstants.Claims.Subject, userId)
+        };
+        var scopes = Request.Headers.TryGetValue("X-Test-Scopes", out var requestedScopes)
+            ? requestedScopes.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            : ["recipes.read", "recipes.write"];
+        claims.AddRange(scopes.Select(scope => new Claim("scope", scope)));
+        var identity = new ClaimsIdentity(claims, AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, AuthenticationScheme);
 

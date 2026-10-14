@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.UseOpenIddict();
 
         builder.Entity<Recipe>()
             .HasOne<Microsoft.AspNetCore.Identity.IdentityUser>()

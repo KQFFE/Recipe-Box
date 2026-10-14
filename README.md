@@ -6,7 +6,7 @@ The project is intentionally growing through small, testable workflows. Recipe p
 
 The website supports phone-sized screens and can be used in a mobile browser. Native Android and iOS apps are in progress; a PWA is not a required part of that work. See [Roadmap.md](./Roadmap.md).
 
-A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. It is an initial native shell and is not connected to user accounts or recipes yet; the API and sign-in design is documented below.
+A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. The authenticated OAuth sign-in issuer and initial owner-scoped recipe API are implemented; the native app is still a starter shell and is not connected to them yet.
 
 ## Accessibility standard
 
@@ -33,7 +33,7 @@ Accessibility validation is part of feature acceptance: add browser coverage for
 - Create a revocable, read-only link for a recipe. Anyone with the link can view the recipe and its current saved layout, but cannot edit it. The link remains active until revoked or replaced. It is a bearer secret; only its SHA-256 hash is stored, and creating a replacement invalidates the previous link.
 - SQLite persistence and Entity Framework Core migrations.
 - Unit tests for recipe text normalization, draft parsing, form validation, image upload validation and local storage, structured recipe parsing, share-token behavior, and public IP ranges; an OCR test exercises the real local engine.
-- HTTP-level tests for CRUD, invalid submissions, image upload/replacement/removal, owner-only image access, English and Swedish photo and URL import review/save, share-link creation/revocation, authentication, and account ownership.
+- HTTP-level tests for CRUD, invalid submissions, image upload/replacement/removal, owner-only image access, English and Swedish photo and URL import review/save, share-link creation/revocation, authentication, and account ownership. Mobile API/OIDC integration tests cover PKCE code exchange, bearer validation, scopes, request validation, and recipe-owner isolation.
 - Responsive page layout for desktop and phone browsers, including the live recipe-layout preview.
 
 The app uses the standard ASP.NET Core Identity UI. Account confirmation is required by the current Identity configuration; configure and verify an email sender before relying on real account registration and confirmation flows.
@@ -42,13 +42,15 @@ The app uses the standard ASP.NET Core Identity UI. Account confirmation is requ
 
 The mobile app will use the existing ASP.NET Core Identity accounts and recipe database. It will not create a second account store or ask users to create a separate mobile password.
 
+OpenIddict now provides the authorization-code issuer and local bearer-token validation. The first version of the recipe API is available under `/api/v1/recipes`; it supports paged list, detail, create, update, and delete operations. Unit/HTTP tests exercise token issuance with PKCE, bearer-token validation, required scopes, recipe validation, and owner isolation.
+
 ### Sign-in
 
-* The web app will host OpenID Connect/OAuth endpoints with OpenIddict, integrated with ASP.NET Core Identity for its existing login, account-confirmation, and lockout rules. Identity remains the user store; OpenIddict persists authorization/token state through EF Core.
+* The web app hosts OpenID Connect/OAuth endpoints with OpenIddict, integrated with ASP.NET Core Identity for its existing login, account-confirmation, and lockout rules. Identity remains the user store; OpenIddict persists authorization/token state through EF Core.
 * The native app will use the OAuth 2.0 authorization-code flow with PKCE, launched in the device's system browser. The app is a public client: it must not contain a client secret or collect the Identity password in a native form.
-* After sign-in, the app will send short-lived bearer access tokens to the API. Refresh tokens, if enabled, must rotate and be stored only in platform secure storage; sign-out must discard them and revoke them where supported.
+* After sign-in, the app will send short-lived bearer access tokens to the API. Refresh tokens are not enabled yet; if added, they must rotate and be stored only in platform secure storage. Sign-out must discard tokens and revoke them where supported.
 * Register only exact native redirect URIs. Prefer verified Android App Links and iOS Universal Links for production; do not accept arbitrary redirect URIs. Require HTTPS for the issuer and API outside local development.
-* The API will accept tokens from this issuer and require the `recipebox-api` audience and appropriate scopes. A valid token identifies the owner; clients must never choose or submit an owner ID.
+* The API accepts tokens from this issuer and requires the `recipebox-api` audience and appropriate scopes. A valid token identifies the owner; clients must never choose or submit an owner ID.
 
 ### Initial API contract
 
@@ -62,13 +64,13 @@ Expose a versioned JSON API under `/api/v1`. Use request/response DTOs rather th
 | `PUT` | `/api/v1/recipes/{id}` | Update one of the signed-in user's recipes |
 | `DELETE` | `/api/v1/recipes/{id}` | Delete one of the signed-in user's recipes |
 
-Recipe reads and writes must filter by the authenticated user's subject/Identity ID, including when looking up a recipe by ID; return `404` for both missing recipes and recipes owned by someone else. Use paged list responses with a server-enforced maximum page size. Request and response DTOs should represent ingredients and instructions as ordered line arrays, and include the recipe language and timestamps; write requests must not accept an owner ID, storage key, or server-managed timestamp. Validate and normalize submitted fields with the same rules as the web forms. Return standard `ProblemDetails` errors without exposing stack traces, secrets, or another user's data. Add owner-authorized image routes separately before mobile image upload or private-image display is implemented.
+Recipe reads and writes filter by the authenticated user's subject/Identity ID, including when looking up a recipe by ID; both missing recipes and recipes owned by someone else return `404`. List responses default to 20 items and enforce a maximum page size of 100. Request and response DTOs represent ingredients and instructions as ordered line arrays and include language and timestamps; write requests cannot set an owner ID, storage key, or server-managed timestamp. Fields are validated and normalized using the existing web form rules. Validation failures return `ProblemDetails`. Add owner-authorized image routes separately before mobile image upload or private-image display is implemented.
 
-Use `openid`, `profile`, and `email` for sign-in and identity, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. Apply request-size limits and rate limits to API operations, and use HTTPS in deployed environments.
+Use `openid`, `profile`, and `email` for sign-in and identity, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. The API currently limits request bodies to 64 KiB and allows 60 requests per minute per remote IP address; use HTTPS in deployed environments.
 
 The first mobile release should require a network connection. Offline caching and edits need a separate privacy and synchronization design; do not cache private recipe responses by default. Recipe photo OCR and website import can be exposed through authenticated API operations after the basic sign-in and recipe journey is working.
 
-Production setup will need a stable HTTPS issuer/API address, persistent protected OpenID Connect signing and encryption keys with a rotation plan, exact registered app redirect URIs, and a verified email sender for confirmed accounts. Keep key material and provider credentials out of source control. iOS signing and App Store delivery additionally require Apple developer credentials and macOS/Xcode build infrastructure.
+For production, configure `Authentication__Issuer` as the stable HTTPS issuer/API address and provide separate PKCS#12 certificates using `OpenIddict__SigningCertificatePath`, `OpenIddict__SigningCertificatePassword`, `OpenIddict__EncryptionCertificatePath`, and `OpenIddict__EncryptionCertificatePassword`. Use durable protected certificate storage, plan certificate rotation, and keep the certificate files/passwords and provider credentials out of source control. Configure a verified email sender for confirmed accounts. iOS signing and App Store delivery additionally require Apple developer credentials and macOS/Xcode build infrastructure.
 
 ### OCR runtime
 
@@ -97,6 +99,7 @@ The MAUI project targets Android and iOS. Building for a platform requires its n
 * **Android:** install the MAUI workload (`dotnet workload install maui`), JDK 17, and Android SDK Platform 36 plus Build-Tools 36.0.0. Android Studio can install Android SDK components through its SDK Manager. The GitHub Actions Android job provisions these tools on its hosted runner.
 * **iOS:** use a Mac with Xcode installed and configured, then install the MAUI workload (`dotnet workload install maui`). On Windows, pair Visual Studio with a reachable Mac build host; iOS apps cannot be built or signed on Windows alone.
 * **Device distribution:** Apple signing and App Store submission require Apple developer credentials. Android release signing also requires a protected signing key; do not put signing keys or passwords in the repository.
+* **Authentication/API:** no extra local secret is needed for Development or automated tests; OpenIddict generates development certificates. Production hosting must provide the HTTPS issuer and separate signing/encryption certificates listed in the [mobile API setup](#mobile-api-and-sign-in-design).
 
 After installing prerequisites, verify the Android target can be built:
 
