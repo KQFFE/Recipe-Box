@@ -118,6 +118,8 @@ powershell -ExecutionPolicy Bypass -File tests\RecipeBox.BrowserTests\bin\Debug\
 dotnet test tests\RecipeBox.BrowserTests\RecipeBox.BrowserTests.csproj
 ```
 
+GitHub Actions runs the full .NET build and test suite, including the Chromium browser tests, on pushes and pull requests.
+
 Browser tests launch the web app on a temporary local port with a temporary SQLite database and remove that database afterward. They register a fresh account per journey and use deterministic OCR and recipe-import adapters only when the `RecipeBox:BrowserTestMode` setting is enabled in Development. Normal Development and Production runs use local Tesseract and the public-Internet URL importer. Never enable browser-test mode in a deployed application.
 
 Build without running tests:
