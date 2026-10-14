@@ -9,14 +9,15 @@ Roadmap
 
 The goal is apps that install and run on Android and iOS devices. A PWA is not a required middle step; keep the responsive website as a useful web experience, but do not invest in PWA packaging unless it provides a separate user benefit.
 
-Plan the app architecture before implementation:
+The shared client framework is .NET MAUI, and the initial native app project now lives in `src\RecipeBox.Mobile`. The app is only a starter shell: it does not yet sign in or load recipes.
 
-* Evaluate a shared cross-platform native client. .NET MAUI is a natural candidate alongside the existing .NET stack; confirm it meets the desired device features and development workflow before choosing it.
+Next:
+
 * Define a secure, authenticated API for the mobile client. The current server-rendered Razor Pages app is not yet a mobile API; retain its existing web experience while adding only the API surface the app needs.
 * Decide how mobile sign-in, photo capture and upload, recipe URL import, and account-scoped access should work.
 * Decide whether offline recipe access or edits are required. Do not cache private recipe data or promise offline edits until privacy and synchronization behavior are designed.
 * Build and test one focused native journey on real Android and iOS devices: sign in, browse recipes, and create a recipe or capture a photo.
-* Extend GitHub Actions for Android builds and tests. Plan for iOS builds and signing, which require Apple signing credentials and macOS build infrastructure.
+* GitHub Actions now compiles the Android target. Add iOS builds and signing when Apple signing credentials and macOS build infrastructure are available.
 
 Keep scalability without overbuilding
 * Keep one app and one database for now. SQLite is fine locally; move to a managed relational database when deployment or usage calls for it.

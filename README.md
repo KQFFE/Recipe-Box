@@ -4,7 +4,9 @@ Recipe Box is the starting point for a personal recipe-capturing and management 
 
 The project is intentionally growing through small, testable workflows. Recipe photo OCR and website import both have review-before-save steps. Users can customize the order and width of a recipe's presentation sections, saved per user and recipe, and share that view through a revocable read-only link.
 
-The website supports phone-sized screens and can be used in a mobile browser. Native Android and iOS apps are the next planned step; a PWA is not a required part of that work. See [Roadmap.md](./Roadmap.md).
+The website supports phone-sized screens and can be used in a mobile browser. Native Android and iOS apps are in progress; a PWA is not a required part of that work. See [Roadmap.md](./Roadmap.md).
+
+A .NET MAUI mobile-app project has been scaffolded in `src\RecipeBox.Mobile`. It is an initial native shell and is not connected to user accounts or recipes yet; the next step is designing the authenticated API.
 
 ## Accessibility standard
 
@@ -60,7 +62,7 @@ The repository includes a local .NET tool manifest pinning Entity Framework Core
 From the repository root:
 
 ```powershell
-dotnet restore RecipeBox.slnx
+dotnet restore src\RecipeBox.Web\RecipeBox.Web.csproj
 dotnet run --project src\RecipeBox.Web\RecipeBox.Web.csproj
 ```
 
@@ -99,10 +101,11 @@ Keep migration files in `src\RecipeBox.Web\Data\Migrations`. Never commit local 
 Run all tests from the repository root:
 
 ```powershell
-dotnet test RecipeBox.slnx
+dotnet test tests\RecipeBox.Tests\RecipeBox.Tests.csproj
+dotnet test tests\RecipeBox.BrowserTests\RecipeBox.BrowserTests.csproj
 ```
 
-The standard command builds into the projects' normal `bin` folders. On Windows, if the development web app is already running from that build output, it holds `RecipeBox.Web.exe` open and prevents the build from replacing it. The resulting `MSB3026` retry warnings followed by `MSB3027`/`MSB3021` copy errors indicate this file lock; they are not test assertion failures. Stop the app with `Ctrl+C` in its terminal (or stop debugging), then rerun the standard command.
+These commands build into the projects' normal `bin` folders. On Windows, if the development web app is already running from that build output, it holds `RecipeBox.Web.exe` open and prevents the build from replacing it. The resulting `MSB3026` retry warnings followed by `MSB3027`/`MSB3021` copy errors indicate this file lock; they are not test assertion failures. Stop the app with `Ctrl+C` in its terminal (or stop debugging), then rerun the commands.
 
 To keep the app running while testing, use the repository script instead:
 
@@ -110,7 +113,7 @@ To keep the app running while testing, use the repository script instead:
 powershell -ExecutionPolicy Bypass -File scripts\test.ps1
 ```
 
-The script builds and runs the full solution test suite with a unique temporary output directory, then removes that directory and returns the test command's exit code. This avoids overwriting the executable currently in use. The script requires PowerShell and the .NET SDK; it does not stop or modify the running app or its database. Use the standard command when the app is stopped.
+The script builds and runs both test projects with a unique temporary output directory, then removes that directory and returns the test command's exit code. This avoids overwriting the executable currently in use and leaves the mobile app out of the server test run. The script requires PowerShell and the .NET SDK; it does not stop or modify the running app or its database. Use the standard commands when the app is stopped.
 
 The solution includes real-browser tests. Install Chromium once after building the browser-test project:
 
@@ -120,15 +123,18 @@ powershell -ExecutionPolicy Bypass -File tests\RecipeBox.BrowserTests\bin\Debug\
 dotnet test tests\RecipeBox.BrowserTests\RecipeBox.BrowserTests.csproj
 ```
 
-GitHub Actions runs the full .NET build and test suite, including the Chromium browser tests, on pushes and pull requests.
+GitHub Actions runs the web unit and Chromium browser tests, and compiles the Android app, on pushes and pull requests. iOS compilation is not included because it requires Apple build tooling on macOS.
 
 Browser tests launch the web app on a temporary local port with a temporary SQLite database and remove that database afterward. They register a fresh account per journey and use deterministic OCR and recipe-import adapters only when the `RecipeBox:BrowserTestMode` setting is enabled in Development. Normal Development and Production runs use local Tesseract and the public-Internet URL importer. Never enable browser-test mode in a deployed application.
 
 Build without running tests:
 
 ```powershell
-dotnet build RecipeBox.slnx
+dotnet build src\RecipeBox.Web\RecipeBox.Web.csproj
+dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --framework net10.0-android
 ```
+
+For local Android development, install the .NET MAUI workload with `dotnet workload install maui`, then install Android SDK Platform 36, Build-Tools 36.0.0, and JDK 17 (Android Studio's SDK Manager can install the Android packages). The CI workflow provisions these automatically. iOS builds require a Mac with Xcode; a Windows developer machine must pair with a Mac build host.
 
 `RecipeContentTests` are unit tests for recipe text handling, section parsing, and form validation. `RecipeLayoutTests` cover default settings and reject invalid section configurations; `RecipeLayoutPagesTests` cover the live recipe preview, saved layout order/width, content preservation, and owner isolation. `LocalRecipeImageStorageTests` cover private per-owner file storage; `RecipeImagePagesTests` cover upload, replacement, removal, owner authorization, and share-link image access. `RecipeSharingTests` cover token generation, owner checks, read-only shared rendering with the saved layout, link rotation, and revocation. `RecipeUrlImporterTests` cover Schema.org parsing, bounded HTML retrieval, and public IP range checks. `RecipeImageUploadTests` cover upload signatures and size limits. `TesseractRecipeTextExtractorTests` exercise the actual local OCR engine against a small licensed fixture. `RecipePagesEndToEndTests` use ASP.NET Core's in-memory test host, fake OCR and URL-import boundaries, and an isolated temporary SQLite database to exercise HTTP page requests, photo and URL capture/review/save, authentication, and owner isolation. `RecipeBox.BrowserTests` use Playwright and Chromium against a separately launched web app to cover account registration, recipe CRUD, cover-image upload and share access, photo review/save, URL-import review/save, compact layout overview and detail expansion, drag-and-drop swapping and edge auto-scroll, and sharing in a real browser.
 
@@ -137,6 +143,7 @@ dotnet build RecipeBox.slnx
 ```text
 RecipeBox.slnx
 src/
+  RecipeBox.Mobile/      .NET MAUI native client (initial shell; API integration pending)
   RecipeBox.Web/
     Areas/Identity/       ASP.NET Core Identity UI integration
     Data/                 EF Core DbContext and database migrations

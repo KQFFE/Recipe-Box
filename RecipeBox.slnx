@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RecipeBox.Mobile/RecipeBox.Mobile.csproj" />
     <Project Path="src/RecipeBox.Web/RecipeBox.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
