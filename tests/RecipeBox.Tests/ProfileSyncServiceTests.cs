@@ -40,6 +40,39 @@ public sealed class ProfileSyncServiceTests
     }
 
     [Fact]
+    public async Task Sync_KeepsDeviceOnlyRecipeWhenProfileUploadFails()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"mobile-sync-{Guid.NewGuid():N}");
+        try
+        {
+            await using var store = CreateStore(directory);
+            var localRecipe = CreateRecipe("Device-only recipe");
+            await store.SaveLocalAsync(localRecipe);
+
+            var api = new FakeRecipeProfileApi
+            {
+                CreateFailure = new HttpRequestException(
+                    "The profile server rejected the request.",
+                    null,
+                    System.Net.HttpStatusCode.Unauthorized)
+            };
+            var sync = new ProfileSyncService(store, api);
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => sync.SyncAsync(ServerAddress));
+            await store.RemoveProfileRecipesAsync();
+
+            var savedRecipe = Assert.Single(await store.GetRecipesAsync());
+            Assert.Equal(localRecipe.LocalId, savedRecipe.LocalId);
+            Assert.False(savedRecipe.IsProfileData);
+            Assert.Null(savedRecipe.ServerId);
+        }
+        finally
+        {
+            DeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
     public async Task Sync_UsesLastEditWinsForRecipeContent()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"mobile-sync-{Guid.NewGuid():N}");
@@ -208,6 +241,8 @@ public sealed class ProfileSyncServiceTests
 
         public int UpdateCount { get; private set; }
 
+        public Exception? CreateFailure { get; init; }
+
         public RecipeResponse AddServerRecipe(string title, DateTime updatedAtUtc)
         {
             var recipe = new RecipeResponse(
@@ -245,6 +280,11 @@ public sealed class ProfileSyncServiceTests
             RecipeWriteRequest recipe,
             CancellationToken cancellationToken = default)
         {
+            if (CreateFailure is not null)
+            {
+                throw CreateFailure;
+            }
+
             var now = DateTime.UtcNow;
             var created = new RecipeResponse(
                 nextId++,

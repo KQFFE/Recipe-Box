@@ -16,12 +16,6 @@ public sealed class ProfileSyncService(
             var localRecipes = await recipeStore.GetAllAsync(cancellationToken);
             var deletedServerIds = new HashSet<int>();
 
-            foreach (var localRecipe in localRecipes.Where(recipe => !recipe.IsProfileData))
-            {
-                await recipeStore.MarkAsProfileDataAsync(localRecipe.LocalId, cancellationToken);
-                localRecipe.IsProfileData = true;
-            }
-
             foreach (var deletedRecipe in localRecipes.Where(recipe => recipe.IsDeleted))
             {
                 if (deletedRecipe.ServerId is int serverId && serverById.ContainsKey(serverId))

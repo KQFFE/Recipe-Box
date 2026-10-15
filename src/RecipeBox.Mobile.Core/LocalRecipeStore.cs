@@ -165,17 +165,6 @@ public sealed class LocalRecipeStore : IAsyncDisposable
         }
     }
 
-    public async Task MarkAsProfileDataAsync(
-        string localId,
-        CancellationToken cancellationToken = default)
-    {
-        var recipe = await GetByLocalIdAsync(localId, cancellationToken)
-            ?? throw new InvalidOperationException("The local recipe no longer exists.");
-        recipe.IsProfileData = true;
-        cancellationToken.ThrowIfCancellationRequested();
-        await database.UpdateAsync(recipe);
-    }
-
     public async Task SaveCoverImageAsync(
         string localId,
         byte[] imageBytes,
