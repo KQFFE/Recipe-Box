@@ -39,6 +39,7 @@
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
+		<RecipeBoxServerUrl Condition="'$(RecipeBoxServerUrl)' == ''"></RecipeBoxServerUrl>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">17.0</SupportedOSPlatformVersion>
@@ -68,6 +69,11 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<AssemblyMetadata Include="RecipeBoxServerUrl" Value="$(RecipeBoxServerUrl)" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\RecipeBox.Mobile.Core\RecipeBox.Mobile.Core.csproj" />
 	</ItemGroup>
 
 </Project>

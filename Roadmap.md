@@ -9,7 +9,7 @@ Roadmap
 
 The goal is apps that install and run on Android and iOS devices. A PWA is not a required middle step; keep the responsive website as a useful web experience, but do not invest in PWA packaging unless it provides a separate user benefit.
 
-The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` supports system-browser sign-in, paged recipe browsing, recipe creation and editing, deletion, private cover-image management, photo capture, and URL import against the API. Device testing and production link association remain outstanding; setup and sign-in behavior are documented in the README.
+The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` supports system-browser sign-in, paged recipe browsing, recipe creation and editing, deletion, private cover-image management, photo capture, and URL import against the API. The complete native journey has been tested on a real Android device. iOS device testing and production link association remain outstanding; setup and sign-in behavior are documented in the README.
 
 Next:
 
@@ -18,8 +18,12 @@ Next:
 * [Implemented] Add mobile sign-in and the browse/create/edit/delete recipe journey against the API.
 * [Implemented] Add owner-authorized image endpoints, photo capture/OCR drafts, and recipe URL import drafts through authenticated operations.
 * [Implemented] Add mobile cover-image viewing, replacement, and removal for recipes.
-* Decide whether offline recipe access or edits are required. Do not cache private recipe data or promise offline edits until privacy and synchronization behavior are designed.
-* Build and test a complete native journey on real Android and iOS devices: sign in, browse, create, edit, and delete recipes, manage a cover image, and capture or import a draft.
+* [Implemented] Make the mobile app local-first: signed-out users can create, browse, edit, and delete recipes offline without configuring a server. Keep local recipes and images in app-private storage. Photo/OCR capture and URL import require an account and network access for the first version.
+* [Implemented] Add a "Save to Profile" action beside "My recipes". Signing in or creating an account promotes local recipes to the account and syncs account recipes and cover images to the device.
+* [Implemented] Sync local edits and profile data with last-edit-wins conflict resolution based on UTC modification timestamps. Remove profile-bound recipes on sign-out while preserving device-only recipes.
+* [ ] Build and test offline and profile-sync journeys on Android, including first-time promotion, reconnection, and edits made on another device.
+* [ ] Deploy a stable HTTPS API/issuer and configure `RecipeBoxServerUrl` for release builds; temporary development tunnels are not production endpoints.
+* [ ] Build and test the complete native journey on a real iOS device when Mac/Xcode infrastructure is available.
 * GitHub Actions now compiles the Android target. Add iOS builds and signing when Apple signing credentials and macOS build infrastructure are available.
 
 Keep scalability without overbuilding

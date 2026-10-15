@@ -147,6 +147,7 @@ public static class RecipesApi
         recipe.StoredImageKey = storedImage.StorageKey;
         recipe.StoredImageContentType = storedImage.ContentType;
         recipe.ImageUrl = null;
+        recipe.UpdatedAtUtc = DateTime.UtcNow;
 
         try
         {
@@ -196,6 +197,7 @@ public static class RecipesApi
         var previousImageKey = recipe.StoredImageKey;
         recipe.StoredImageKey = null;
         recipe.StoredImageContentType = null;
+        recipe.UpdatedAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         if (!await RecipeImageStorageCleanup.TryDeleteAsync(
                 imageStorage,

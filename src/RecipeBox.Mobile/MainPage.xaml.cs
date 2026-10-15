@@ -1,125 +1,208 @@
 using System.Net.Http;
 using System.Text.Json;
+using RecipeBox.Mobile.Core;
+using SQLite;
 
 namespace RecipeBox.Mobile;
 
 public partial class MainPage : ContentPage
 {
     private readonly MobileApiClient apiClient;
+    private readonly LocalRecipeStore recipeStore;
+    private readonly ProfileSyncService profileSync;
     private bool isBusy;
     private bool isSignedIn;
-    private int currentPage;
-    private int? editingRecipeId;
+    private string? editingRecipeId;
 
-    public MainPage(MobileApiClient apiClient)
+    public MainPage(
+        MobileApiClient apiClient,
+        LocalRecipeStore recipeStore,
+        ProfileSyncService profileSync)
     {
         InitializeComponent();
         this.apiClient = apiClient;
-        ServerAddressEntry.Text = Preferences.Default.Get(MobileApiClient.ServerAddressPreferenceKey, string.Empty);
+        this.recipeStore = recipeStore;
+        this.profileSync = profileSync;
         LanguagePicker.SelectedIndex = 0;
+        SetSignedIn(false);
+#if DEBUG
+        ChangeServerButton.IsVisible = true;
+#endif
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (!TryGetServerAddress(out var serverAddress))
-        {
-            return;
-        }
-
         try
         {
-            if (await apiClient.HasStoredSessionAsync(serverAddress))
+            await LoadRecipesAsync();
+            var serverAddress = GetSavedServerAddress();
+            if (serverAddress is not null && await apiClient.HasStoredSessionAsync(serverAddress))
             {
                 SetSignedIn(true);
+                await profileSync.SyncAsync(serverAddress);
                 await LoadRecipesAsync();
+                StatusLabel.Text = "Your recipes are synced with your profile.";
             }
         }
         catch (Exception exception) when (IsExpectedClientException(exception))
         {
             if (exception is MobileApiException { StatusCode: System.Net.HttpStatusCode.Unauthorized })
             {
+                await apiClient.ClearLocalSessionAsync();
                 SetSignedIn(false);
+                await recipeStore.RemoveProfileRecipesAsync();
+                await LoadRecipesAsync();
             }
 
             StatusLabel.Text = exception.Message;
         }
     }
 
-    private async void OnSignInClicked(object? sender, EventArgs e)
+    private async void OnSaveToProfileClicked(object? sender, EventArgs e)
     {
-        if (!TryGetServerAddress(out var serverAddress))
-        {
-            return;
-        }
-
         await RunBusyOperationAsync(async () =>
         {
+            var serverAddress = isSignedIn
+                ? GetSavedServerAddress()
+                : await GetServerAddressForSignInAsync();
+            if (serverAddress is null)
+            {
+                return;
+            }
+
             Preferences.Default.Set(MobileApiClient.ServerAddressPreferenceKey, serverAddress.AbsoluteUri);
-            StatusLabel.Text = "Opening secure sign-in in your browser...";
-            await apiClient.SignInAsync(serverAddress);
+            if (!await apiClient.HasStoredSessionAsync(serverAddress))
+            {
+                StatusLabel.Text = "Opening secure sign-in in your browser...";
+                await apiClient.SignInAsync(serverAddress);
+            }
+
             SetSignedIn(true);
+            await profileSync.SyncAsync(serverAddress);
             await LoadRecipesAsync();
+            StatusLabel.Text = "Your recipes are synced with your profile.";
         });
     }
 
     private async void OnSignOutClicked(object? sender, EventArgs e)
     {
-        await RunBusyOperationAsync(async () =>
-        {
-            try
-            {
-                await apiClient.SignOutAsync(
-                    new Uri(Preferences.Default.Get(MobileApiClient.ServerAddressPreferenceKey, string.Empty)));
-                StatusLabel.Text = "You have been signed out.";
-            }
-            finally
-            {
-                RecipeList.Children.Clear();
-                SetSignedIn(false);
-            }
-        });
-    }
-
-    private async void OnRefreshClicked(object? sender, EventArgs e)
-    {
-        await RunBusyOperationAsync(() => LoadRecipesAsync());
-    }
-
-    private async void OnLoadMoreClicked(object? sender, EventArgs e)
-    {
-        await RunBusyOperationAsync(() => LoadRecipesAsync(loadNextPage: true));
-    }
-
-    private async void OnCreateClicked(object? sender, EventArgs e)
-    {
-        if (!TryGetServerAddress(out var serverAddress))
+        if (!isSignedIn
+            || !await DisplayAlertAsync(
+                "Sign out?",
+                "Profile recipes and unsynced profile changes will be removed from this device. Device-only recipes will stay.",
+                "Sign out",
+                "Cancel"))
         {
             return;
         }
 
         await RunBusyOperationAsync(async () =>
         {
-            var languageCode = LanguagePicker.SelectedIndex == 1 ? "sv" : "en";
-            var recipe = new RecipeWriteRequest(
-                TitleEntry.Text ?? string.Empty,
-                DescriptionEntry.Text,
-                languageCode,
-                SplitLines(IngredientsEditor.Text),
-                SplitLines(InstructionsEditor.Text));
-            if (editingRecipeId is int recipeId)
+            try
             {
-                await apiClient.UpdateRecipeAsync(serverAddress, recipeId, recipe);
-                ResetRecipeForm();
+                var serverAddress = GetSavedServerAddress();
+                if (serverAddress is not null)
+                {
+                    await apiClient.SignOutAsync(serverAddress);
+                }
+            }
+            finally
+            {
+                await recipeStore.RemoveProfileRecipesAsync();
+                SetSignedIn(false);
                 await LoadRecipesAsync();
-                StatusLabel.Text = "Recipe updated.";
-                return;
+                StatusLabel.Text = "You have been signed out. Device-only recipes remain on this device.";
+            }
+        });
+    }
+
+    private async void OnChangeServerClicked(object? sender, EventArgs e)
+    {
+#if DEBUG
+        if (isBusy)
+        {
+            return;
+        }
+
+        var serverAddress = await GetServerAddressForSignInAsync();
+        if (serverAddress is null)
+        {
+            return;
+        }
+
+        var previousAddress = GetSavedServerAddress();
+        if (previousAddress is not null
+            && string.Equals(previousAddress.AbsoluteUri, serverAddress.AbsoluteUri, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (!await DisplayAlertAsync(
+                "Change development server?",
+                "This removes profile recipes from this device. They remain on the server and can be downloaded again.",
+                "Change server",
+                "Cancel"))
+        {
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            await apiClient.ClearLocalSessionAsync();
+            await recipeStore.RemoveProfileRecipesAsync();
+            Preferences.Default.Set(MobileApiClient.ServerAddressPreferenceKey, serverAddress.AbsoluteUri);
+            SetSignedIn(false);
+            await LoadRecipesAsync();
+            StatusLabel.Text = "Development server changed. Save to Profile to sign in again.";
+        });
+#endif
+    }
+
+    private async void OnRefreshClicked(object? sender, EventArgs e)
+    {
+        await RunBusyOperationAsync(async () =>
+        {
+            if (isSignedIn && GetSavedServerAddress() is Uri serverAddress)
+            {
+                await profileSync.SyncAsync(serverAddress);
             }
 
-            await apiClient.CreateRecipeAsync(serverAddress, recipe);
+            await LoadRecipesAsync();
+        });
+    }
+
+    private async void OnCreateClicked(object? sender, EventArgs e)
+    {
+        await RunBusyOperationAsync(async () =>
+        {
+            var wasEditing = editingRecipeId is not null;
+            StoredRecipe recipe;
+            if (editingRecipeId is string recipeId)
+            {
+                recipe = await recipeStore.GetByLocalIdAsync(recipeId)
+                    ?? throw new InvalidOperationException("The recipe being edited no longer exists.");
+            }
+            else
+            {
+                recipe = new StoredRecipe
+                {
+                    CreatedAtUtc = DateTime.UtcNow,
+                    IsProfileData = isSignedIn
+                };
+            }
+
+            recipe.Title = TitleEntry.Text ?? string.Empty;
+            recipe.Description = DescriptionEntry.Text;
+            recipe.LanguageCode = LanguagePicker.SelectedIndex == 1 ? "sv" : "en";
+            recipe.Ingredients = SplitLines(IngredientsEditor.Text);
+            recipe.Instructions = SplitLines(InstructionsEditor.Text);
+            await recipeStore.SaveLocalAsync(recipe);
+
             ResetRecipeForm();
             await LoadRecipesAsync();
-            StatusLabel.Text = "Recipe saved.";
+            StatusLabel.Text = wasEditing ? "Recipe updated on this device." : "Recipe saved on this device.";
+            await SyncAfterLocalChangeAsync();
         });
     }
 
@@ -131,7 +214,7 @@ public partial class MainPage : ContentPage
 
     private async void OnCapturePhotoClicked(object? sender, EventArgs e)
     {
-        if (!TryGetServerAddress(out var serverAddress))
+        if (!TryGetSignedInServerAddress(out var serverAddress))
         {
             return;
         }
@@ -161,7 +244,7 @@ public partial class MainPage : ContentPage
 
     private async void OnImportUrlClicked(object? sender, EventArgs e)
     {
-        if (!TryGetServerAddress(out var serverAddress))
+        if (!TryGetSignedInServerAddress(out var serverAddress))
         {
             return;
         }
@@ -177,8 +260,7 @@ public partial class MainPage : ContentPage
 
     private async void OnChooseCoverImageClicked(object? sender, EventArgs e)
     {
-        if (editingRecipeId is not int recipeId
-            || !TryGetServerAddress(out var serverAddress))
+        if (editingRecipeId is not string recipeId)
         {
             return;
         }
@@ -197,75 +279,69 @@ public partial class MainPage : ContentPage
 
             await using var photoStream = await photo.OpenReadAsync();
             var (bytes, contentType, fileName) = await ReadPhotoAsync(photoStream);
-            await apiClient.UploadRecipeImageAsync(
-                serverAddress,
-                recipeId,
-                bytes,
-                contentType,
-                fileName);
-            await LoadEditingCoverImageAsync(serverAddress, recipeId);
-            StatusLabel.Text = "Cover image updated.";
+            await recipeStore.SaveCoverImageAsync(recipeId, bytes, contentType);
+            await LoadEditingCoverImageAsync(recipeId);
+            StatusLabel.Text = "Cover image saved on this device.";
+            await SyncAfterLocalChangeAsync();
         });
     }
 
     private async void OnRemoveCoverImageClicked(object? sender, EventArgs e)
     {
-        if (editingRecipeId is not int recipeId
+        if (editingRecipeId is not string recipeId
             || !await DisplayAlertAsync(
                 "Remove cover image?",
                 "This removes the cover image from this recipe.",
                 "Remove",
-                "Cancel")
-            || !TryGetServerAddress(out var serverAddress))
+                "Cancel"))
         {
             return;
         }
 
         await RunBusyOperationAsync(async () =>
         {
-            await apiClient.DeleteRecipeImageAsync(serverAddress, recipeId);
+            await recipeStore.ClearCoverImageAsync(recipeId);
             CoverImage.Source = null;
             CoverImage.IsVisible = false;
             RemoveCoverImageButton.IsVisible = false;
-            StatusLabel.Text = "Cover image removed.";
+            StatusLabel.Text = "Cover image removed from this device.";
+            await SyncAfterLocalChangeAsync();
         });
     }
 
-    private async Task LoadRecipesAsync(bool loadNextPage = false)
+    private async Task LoadRecipesAsync()
     {
-        if (!TryGetServerAddress(out var serverAddress))
-        {
-            return;
-        }
+        var recipes = await recipeStore.GetRecipesAsync();
+        RecipeList.Children.Clear();
 
-        var requestedPage = loadNextPage ? currentPage + 1 : 1;
-        var recipeList = await apiClient.GetRecipesAsync(serverAddress, requestedPage);
-        if (!loadNextPage)
-        {
-            RecipeList.Children.Clear();
-        }
-
-        if (recipeList.Items.Count == 0 && !loadNextPage)
+        if (recipes.Count == 0)
         {
             RecipeList.Children.Add(new Label { Text = "No recipes yet. Add one below." });
         }
         else
         {
-            foreach (var recipe in recipeList.Items)
+            foreach (var recipe in recipes)
             {
                 RecipeList.Children.Add(CreateRecipeCard(recipe));
             }
         }
 
-        currentPage = recipeList.Page;
-        LoadMoreButton.IsVisible = currentPage * recipeList.PageSize < recipeList.TotalCount;
-        StatusLabel.Text =
-            $"Loaded {Math.Min(currentPage * recipeList.PageSize, recipeList.TotalCount)} of {recipeList.TotalCount} recipe(s).";
+        StatusLabel.Text = $"{recipes.Count} recipe(s) on this device.";
     }
 
-    private View CreateRecipeCard(RecipeResponse recipe)
+    private View CreateRecipeCard(StoredRecipe recipe)
     {
         var content = new VerticalStackLayout { Spacing = 6 };
+        if (recipe.CoverImagePath is string imagePath && File.Exists(imagePath))
+        {
+            content.Children.Add(new Image
+            {
+                Source = ImageSource.FromFile(imagePath),
+                HeightRequest = 150,
+                Aspect = Aspect.AspectFill
+            });
+        }
+
         content.Children.Add(new Label
         {
             Text = recipe.Title,
@@ -347,14 +423,9 @@ public partial class MainPage : ContentPage
         };
     }
 
-    private async Task BeginEditingRecipeAsync(RecipeResponse recipe)
+    private async Task BeginEditingRecipeAsync(StoredRecipe recipe)
     {
-        if (!TryGetServerAddress(out var serverAddress))
-        {
-            return;
-        }
-
-        editingRecipeId = recipe.Id;
+        editingRecipeId = recipe.LocalId;
         RecipeFormHeading.Text = "Edit recipe";
         CreateButton.Text = "Save changes";
         CancelEditButton.IsVisible = true;
@@ -367,14 +438,16 @@ public partial class MainPage : ContentPage
         LanguagePicker.SelectedIndex = recipe.LanguageCode == "sv" ? 1 : 0;
         IngredientsEditor.Text = string.Join(Environment.NewLine, recipe.Ingredients);
         InstructionsEditor.Text = string.Join(Environment.NewLine, recipe.Instructions);
-        await LoadEditingCoverImageAsync(serverAddress, recipe.Id);
+        await LoadEditingCoverImageAsync(recipe.LocalId);
         StatusLabel.Text = $"Editing {recipe.Title}.";
         await PageScrollView.ScrollToAsync(TitleEntry, ScrollToPosition.Start, animated: true);
     }
 
-    private async Task LoadEditingCoverImageAsync(Uri serverAddress, int recipeId)
+    private async Task LoadEditingCoverImageAsync(string localId)
     {
-        var imageBytes = await apiClient.GetRecipeImageAsync(serverAddress, recipeId);
+        var recipe = await recipeStore.GetByLocalIdAsync(localId)
+            ?? throw new InvalidOperationException("The recipe being edited no longer exists.");
+        var imageBytes = await recipeStore.ReadCoverImageAsync(recipe);
         CoverImage.Source = imageBytes is null
             ? null
             : ImageSource.FromStream(() => new MemoryStream(imageBytes));
@@ -382,7 +455,7 @@ public partial class MainPage : ContentPage
         RemoveCoverImageButton.IsVisible = imageBytes is not null;
     }
 
-    private async Task DeleteRecipeAsync(RecipeResponse recipe)
+    private async Task DeleteRecipeAsync(StoredRecipe recipe)
     {
         if (isBusy
             || !await DisplayAlertAsync(
@@ -390,21 +463,22 @@ public partial class MainPage : ContentPage
                 $"Delete \"{recipe.Title}\" and its cover image? This cannot be undone.",
                 "Delete",
                 "Cancel")
-            || !TryGetServerAddress(out var serverAddress))
+            )
         {
             return;
         }
 
         await RunBusyOperationAsync(async () =>
         {
-            await apiClient.DeleteRecipeAsync(serverAddress, recipe.Id);
-            if (editingRecipeId == recipe.Id)
+            await recipeStore.DeleteAsync(recipe.LocalId);
+            if (editingRecipeId == recipe.LocalId)
             {
                 ResetRecipeForm();
             }
 
             await LoadRecipesAsync();
-            StatusLabel.Text = "Recipe deleted.";
+            StatusLabel.Text = "Recipe deleted on this device.";
+            await SyncAfterLocalChangeAsync();
         });
     }
 
@@ -501,7 +575,10 @@ public partial class MainPage : ContentPage
         {
             if (exception is MobileApiException { StatusCode: System.Net.HttpStatusCode.Unauthorized })
             {
+                await apiClient.ClearLocalSessionAsync();
                 SetSignedIn(false);
+                await recipeStore.RemoveProfileRecipesAsync();
+                await LoadRecipesAsync();
             }
 
             StatusLabel.Text = exception.Message;
@@ -513,10 +590,68 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private bool TryGetServerAddress(out Uri serverAddress)
+    private async Task<Uri?> GetServerAddressForSignInAsync()
     {
-        if (Uri.TryCreate(ServerAddressEntry.Text?.Trim(), UriKind.Absolute, out var parsedAddress)
+#if DEBUG
+        var configuredAddress = MobileApiClient.GetConfiguredServerAddress();
+        var savedAddress = Preferences.Default.Get(MobileApiClient.ServerAddressPreferenceKey, string.Empty);
+        var initialAddress = string.IsNullOrWhiteSpace(savedAddress)
+            ? configuredAddress?.AbsoluteUri ?? string.Empty
+            : savedAddress;
+        var enteredAddress = await DisplayPromptAsync(
+            "Save to Profile",
+            "Enter your Recipe Box server's HTTPS address. The development tunnel URL changes when restarted.",
+            initialValue: initialAddress,
+            keyboard: Keyboard.Url);
+        if (enteredAddress is null)
+        {
+            return null;
+        }
+
+        if (TryNormalizeServerAddress(enteredAddress, out var enteredServerAddress))
+        {
+            return enteredServerAddress;
+        }
+
+        StatusLabel.Text = "Enter a valid HTTPS server address.";
+        return null;
+#else
+        var configuredAddress = MobileApiClient.GetConfiguredServerAddress();
+        if (configuredAddress is null)
+        {
+            StatusLabel.Text = "Profile sync is not configured for this app build yet.";
+        }
+
+        return configuredAddress;
+#endif
+    }
+
+    private Uri? GetSavedServerAddress()
+    {
+#if !DEBUG
+        return MobileApiClient.GetConfiguredServerAddress();
+#else
+        var savedAddress = Preferences.Default.Get(MobileApiClient.ServerAddressPreferenceKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(savedAddress))
+        {
+            return MobileApiClient.GetConfiguredServerAddress();
+        }
+
+        if (TryNormalizeServerAddress(savedAddress, out var serverAddress))
+        {
+            return serverAddress;
+        }
+
+        StatusLabel.Text = "The saved profile server address is invalid. Sign out and save to Profile again.";
+        return null;
+#endif
+    }
+
+    private static bool TryNormalizeServerAddress(string value, out Uri serverAddress)
+    {
+        if (Uri.TryCreate(value.Trim(), UriKind.Absolute, out var parsedAddress)
             && parsedAddress.Scheme == Uri.UriSchemeHttps
+            && !string.IsNullOrWhiteSpace(parsedAddress.Host)
             && string.IsNullOrEmpty(parsedAddress.UserInfo)
             && string.IsNullOrEmpty(parsedAddress.Query)
             && string.IsNullOrEmpty(parsedAddress.Fragment))
@@ -526,34 +661,65 @@ public partial class MainPage : ContentPage
         }
 
         serverAddress = null!;
-        StatusLabel.Text = "Enter a valid HTTPS server address, for example https://recipes.example.com.";
         return false;
+    }
+
+    private bool TryGetSignedInServerAddress(out Uri serverAddress)
+    {
+        if (isSignedIn && GetSavedServerAddress() is Uri savedAddress)
+        {
+            serverAddress = savedAddress;
+            return true;
+        }
+
+        serverAddress = null!;
+        StatusLabel.Text = "Save to Profile before using photo capture or URL import.";
+        return false;
+    }
+
+    private async Task SyncAfterLocalChangeAsync()
+    {
+        if (!isSignedIn || GetSavedServerAddress() is not Uri serverAddress)
+        {
+            return;
+        }
+
+        try
+        {
+            await profileSync.SyncAsync(serverAddress);
+            await LoadRecipesAsync();
+            StatusLabel.Text = "Saved on this device and synced with your profile.";
+        }
+        catch (Exception exception) when (IsExpectedClientException(exception))
+        {
+            StatusLabel.Text = $"Saved on this device. Profile sync failed: {exception.Message}";
+        }
     }
 
     private void SetSignedIn(bool signedIn)
     {
         isSignedIn = signedIn;
-        SignInButton.IsVisible = !signedIn;
+        SaveToProfileButton.Text = signedIn ? "Sync Profile" : "Save to Profile";
         SignOutButton.IsVisible = signedIn;
-        ServerAddressEntry.IsEnabled = !signedIn && !isBusy;
-        RecipesSection.IsVisible = signedIn;
+        CapturePhotoButton.IsEnabled = signedIn && !isBusy;
+        ImportUrlButton.IsEnabled = signedIn && !isBusy;
+        ImportUrlEntry.IsEnabled = signedIn && !isBusy;
     }
 
     private void SetControlsEnabled(bool enabled)
     {
-        SignInButton.IsEnabled = enabled;
+        SaveToProfileButton.IsEnabled = enabled;
         SignOutButton.IsEnabled = enabled;
-        ServerAddressEntry.IsEnabled = enabled && !isSignedIn;
+        ChangeServerButton.IsEnabled = enabled;
         TitleEntry.IsEnabled = enabled;
         DescriptionEntry.IsEnabled = enabled;
         LanguagePicker.IsEnabled = enabled;
         IngredientsEditor.IsEnabled = enabled;
         InstructionsEditor.IsEnabled = enabled;
         RefreshButton.IsEnabled = enabled;
-        LoadMoreButton.IsEnabled = enabled;
-        CapturePhotoButton.IsEnabled = enabled;
-        ImportUrlButton.IsEnabled = enabled;
-        ImportUrlEntry.IsEnabled = enabled;
+        CapturePhotoButton.IsEnabled = enabled && isSignedIn;
+        ImportUrlButton.IsEnabled = enabled && isSignedIn;
+        ImportUrlEntry.IsEnabled = enabled && isSignedIn;
         ChooseCoverImageButton.IsEnabled = enabled;
         RemoveCoverImageButton.IsEnabled = enabled;
         CreateButton.IsEnabled = enabled;
@@ -573,5 +739,6 @@ public partial class MainPage : ContentPage
             or FeatureNotSupportedException
             or PermissionException
             or JsonException
+            or SQLiteException
             or OperationCanceledException;
 }

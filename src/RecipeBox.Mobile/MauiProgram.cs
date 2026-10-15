@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using RecipeBox.Mobile.Core;
 
 namespace RecipeBox.Mobile;
 
@@ -20,6 +21,12 @@ public static class MauiProgram
 		}));
 		builder.Services.AddSingleton<MobileTokenStore>();
 		builder.Services.AddSingleton<MobileApiClient>();
+		builder.Services.AddSingleton<IRecipeProfileApi>(services =>
+			services.GetRequiredService<MobileApiClient>());
+		builder.Services.AddSingleton(_ => new LocalRecipeStore(
+			Path.Combine(FileSystem.AppDataDirectory, "recipes.db"),
+			Path.Combine(FileSystem.AppDataDirectory, "recipe-images")));
+		builder.Services.AddSingleton<ProfileSyncService>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

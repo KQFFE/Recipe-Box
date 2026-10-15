@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RecipeBox.Web\RecipeBox.Web.csproj" />
+    <ProjectReference Include="..\..\src\RecipeBox.Mobile.Core\RecipeBox.Mobile.Core.csproj" />
   </ItemGroup>
 
 </Project>

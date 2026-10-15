@@ -4,10 +4,12 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
+using RecipeBox.Mobile.Core;
 
 namespace RecipeBox.Mobile;
 
-public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore tokenStore)
+public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore tokenStore) : IRecipeProfileApi
 {
     public const string ServerAddressPreferenceKey = "mobile.server-address";
     private const string ClientId = "recipebox-mobile";
@@ -16,6 +18,25 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim refreshLock = new(1, 1);
+
+    public static Uri? GetConfiguredServerAddress()
+    {
+        var configuredAddress = typeof(MobileApiClient).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "RecipeBoxServerUrl")
+            ?.Value;
+        if (!Uri.TryCreate(configuredAddress, UriKind.Absolute, out var parsedAddress)
+            || parsedAddress.Scheme != Uri.UriSchemeHttps
+            || string.IsNullOrWhiteSpace(parsedAddress.Host)
+            || !string.IsNullOrEmpty(parsedAddress.UserInfo)
+            || !string.IsNullOrEmpty(parsedAddress.Query)
+            || !string.IsNullOrEmpty(parsedAddress.Fragment))
+        {
+            return null;
+        }
+
+        return new Uri(parsedAddress.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/");
+    }
 
     public async Task SignInAsync(Uri serverAddress, CancellationToken cancellationToken = default)
     {
@@ -106,7 +127,23 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         return recipeList;
     }
 
-    public async Task CreateRecipeAsync(
+    public async Task<RecipeResponse> GetRecipeAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            HttpMethod.Get,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}"),
+            serverAddress,
+            cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty recipe response.");
+    }
+
+    public async Task<RecipeResponse> CreateRecipeAsync(
         Uri serverAddress,
         RecipeWriteRequest recipe,
         CancellationToken cancellationToken = default)
@@ -119,9 +156,11 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         request.Content = JsonContent.Create(recipe, options: JsonOptions);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty create response.");
     }
 
-    public async Task UpdateRecipeAsync(
+    public async Task<RecipeResponse> UpdateRecipeAsync(
         Uri serverAddress,
         int recipeId,
         RecipeWriteRequest recipe,
@@ -135,6 +174,8 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         request.Content = JsonContent.Create(recipe, options: JsonOptions);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty update response.");
     }
 
     public async Task DeleteRecipeAsync(
@@ -151,7 +192,7 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
-    public async Task<byte[]?> GetRecipeImageAsync(
+    public async Task<RecipeImageResponse?> GetRecipeImageAsync(
         Uri serverAddress,
         int recipeId,
         CancellationToken cancellationToken = default)
@@ -168,7 +209,11 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         }
 
         await EnsureSuccessAsync(response, cancellationToken);
-        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType
+            ?? throw new JsonException("The recipe server did not specify the cover image type.");
+        return new RecipeImageResponse(
+            await response.Content.ReadAsByteArrayAsync(cancellationToken),
+            contentType);
     }
 
     public async Task UploadRecipeImageAsync(
@@ -205,6 +250,11 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             serverAddress,
             cancellationToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return;
+        }
+
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
@@ -282,6 +332,9 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             await tokenStore.ClearAsync(CancellationToken.None);
         }
     }
+
+    public Task ClearLocalSessionAsync(CancellationToken cancellationToken = default) =>
+        tokenStore.ClearAsync(cancellationToken);
 
     private async Task<HttpRequestMessage> CreateAuthorizedRequestAsync(
         HttpMethod method,
@@ -490,29 +543,6 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
             .Replace('+', '-')
             .Replace('/', '_');
 }
-
-public sealed record RecipeResponse(
-    int Id,
-    string Title,
-    string? Description,
-    string LanguageCode,
-    IReadOnlyList<string> Ingredients,
-    IReadOnlyList<string> Instructions,
-    DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
-
-public sealed record RecipeListResponse(
-    IReadOnlyList<RecipeResponse> Items,
-    int Page,
-    int PageSize,
-    int TotalCount);
-
-public sealed record RecipeWriteRequest(
-    string Title,
-    string? Description,
-    string LanguageCode,
-    IReadOnlyList<string> Ingredients,
-    IReadOnlyList<string> Instructions);
 
 public sealed record RecipeDraftRequest(string Url);
 

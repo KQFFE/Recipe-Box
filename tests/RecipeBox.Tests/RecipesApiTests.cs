@@ -209,6 +209,8 @@ public sealed class RecipesApiTests
         });
         var recipe = await createResponse.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions);
         Assert.NotNull(recipe);
+        var updatedAtBeforeUpload = recipe.UpdatedAtUtc;
+        await Task.Delay(10);
 
         using var imageContent = new MultipartFormDataContent();
         imageContent.Add(
@@ -224,6 +226,11 @@ public sealed class RecipesApiTests
         var uploadResponse = await client.SendAsync(uploadRequest);
         Assert.Equal(HttpStatusCode.NoContent, uploadResponse.StatusCode);
         Assert.Equal(1, factory.ImageStorage.Count);
+        var recipeAfterUpload = await client.GetFromJsonAsync<RecipeResponse>(
+            $"/api/v1/recipes/{recipe.Id}",
+            JsonOptions);
+        Assert.NotNull(recipeAfterUpload);
+        Assert.True(recipeAfterUpload.UpdatedAtUtc > updatedAtBeforeUpload);
 
         var imageResponse = await client.GetAsync($"/api/v1/recipes/{recipe.Id}/image");
         Assert.Equal(HttpStatusCode.OK, imageResponse.StatusCode);
@@ -260,9 +267,15 @@ public sealed class RecipesApiTests
         Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(otherOwnerUpload)).StatusCode);
         Assert.Equal(1, factory.ImageStorage.Count);
 
+        await Task.Delay(10);
         var deleteResponse = await client.DeleteAsync($"/api/v1/recipes/{recipe.Id}/image");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         Assert.Equal(0, factory.ImageStorage.Count);
+        var recipeAfterDelete = await client.GetFromJsonAsync<RecipeResponse>(
+            $"/api/v1/recipes/{recipe.Id}",
+            JsonOptions);
+        Assert.NotNull(recipeAfterDelete);
+        Assert.True(recipeAfterDelete.UpdatedAtUtc > recipeAfterUpload.UpdatedAtUtc);
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await client.GetAsync($"/api/v1/recipes/{recipe.Id}/image")).StatusCode);

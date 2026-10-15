@@ -11,42 +11,40 @@
                 SemanticProperties.HeadingLevel="Level1" />
 
             <Label
-                Text="Sign in with your Recipe Box account to access your recipes."
+                Text="Your recipes are stored on this device. Save to Profile to sync them across devices."
                 LineBreakMode="WordWrap" />
-
-            <Entry
-                x:Name="ServerAddressEntry"
-                Placeholder="https://recipes.example.com"
-                Keyboard="Url"
-                ClearButtonVisibility="WhileEditing"
-                SemanticProperties.Description="Recipe Box server address" />
-
-            <HorizontalStackLayout Spacing="12">
-                <Button
-                    x:Name="SignInButton"
-                    Text="Sign in"
-                    Clicked="OnSignInClicked"
-                    SemanticProperties.Description="Sign in to Recipe Box" />
-                <Button
-                    x:Name="SignOutButton"
-                    Text="Sign out"
-                    IsVisible="False"
-                    Clicked="OnSignOutClicked" />
-            </HorizontalStackLayout>
 
             <Label
                 x:Name="StatusLabel"
-                Text="Enter the HTTPS address of your Recipe Box server."
+                Text="Add a recipe to get started."
                 LineBreakMode="WordWrap" />
 
             <VerticalStackLayout
                 x:Name="RecipesSection"
-                IsVisible="False"
                 Spacing="16">
-                <Label
-                    Text="Your recipes"
-                    Style="{StaticResource SubHeadline}"
-                    SemanticProperties.HeadingLevel="Level2" />
+
+                <HorizontalStackLayout Spacing="12">
+                    <Label
+                        Text="My recipes"
+                        Style="{StaticResource SubHeadline}"
+                        VerticalOptions="Center"
+                        SemanticProperties.HeadingLevel="Level2" />
+                    <Button
+                        x:Name="SaveToProfileButton"
+                        Text="Save to Profile"
+                        Clicked="OnSaveToProfileClicked"
+                        SemanticProperties.Description="Save and sync recipes to your profile" />
+                    <Button
+                        x:Name="SignOutButton"
+                        Text="Sign out"
+                        IsVisible="False"
+                        Clicked="OnSignOutClicked" />
+                    <Button
+                        x:Name="ChangeServerButton"
+                        Text="Change dev server"
+                        IsVisible="False"
+                        Clicked="OnChangeServerClicked" />
+                </HorizontalStackLayout>
 
                 <Button
                     x:Name="RefreshButton"
@@ -56,11 +54,6 @@
                 <VerticalStackLayout
                     x:Name="RecipeList"
                     Spacing="10" />
-                <Button
-                    x:Name="LoadMoreButton"
-                    Text="Load more recipes"
-                    IsVisible="False"
-                    Clicked="OnLoadMoreClicked" />
 
                 <BoxView HeightRequest="1" Color="{StaticResource Gray200}" />
 
@@ -83,6 +76,9 @@
                     x:Name="ImportUrlButton"
                     Text="Import recipe page"
                     Clicked="OnImportUrlClicked" />
+                <Label
+                    Text="Photo capture and recipe-page import require a profile and an internet connection."
+                    LineBreakMode="WordWrap" />
 
                 <Image
                     x:Name="CoverImage"

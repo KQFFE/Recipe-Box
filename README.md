@@ -71,7 +71,22 @@ The API also exposes `GET` and `DELETE /api/v1/recipes/{id}/image` and `POST /ap
 
 Use `openid`, `profile`, `email`, and `offline_access` for sign-in and session renewal, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. JSON requests are limited to 64 KiB, photo/image multipart requests to 11 MiB total, and API calls to 60 requests per minute per remote IP address. Use HTTPS in deployed environments.
 
-The mobile app currently requires a network connection and supports paged recipe browsing, recipe creation, editing and deleting recipes, private cover-image management, photo capture with OCR, and public recipe-page import. Photo and imported recipe data are presented for review before saving; captured photos are processed in memory and not retained by the server. Offline caching and edits remain out of scope until a separate privacy and synchronization design is in place; private recipe responses are not cached.
+The native app is local-first: recipes and cover images are stored in the app's private data directory, so signed-out users can browse, create, edit, and delete them offline. Photo capture/OCR and recipe-page import still require a signed-in profile and a network connection; extracted data is shown for review before saving.
+
+### Local recipes and profile sync
+
+* The app uses a local SQLite database and app-private image files. Android Auto Backup is disabled so local recipe data is not copied into an Android cloud backup.
+* Users can create, browse, edit, and delete recipes without an account, server address, or network. Changes remain on the device until the user chooses **Save to Profile**.
+* **Save to Profile** opens the existing system-browser login/registration flow. On first sync it uploads device recipes and downloads recipes and cover images from the profile. Signed-in edits and deletions queue locally while offline and sync on refresh or when the app next opens online.
+* Recipe conflicts use last-edit-wins based on UTC modification times, including deletions and cover-image changes. Keep the device clock accurate for predictable conflict resolution.
+* Signing out asks for confirmation, then removes profile-bound recipes and images from this device. Device-only recipes that were never promoted to a profile remain. Invalid/revoked authentication also clears profile data locally.
+* No permanent production server URL is configured yet. In Debug, the app asks for an HTTPS address only when the user taps **Save to Profile**; the prompt supports local development tunnels. A Debug-only **Change dev server** action clears profile data and the saved session before switching servers. For a Release build, set the stable HTTPS host at build time:
+
+  ```powershell
+  dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --configuration Release --framework net10.0-android -p:RecipeBoxServerUrl=https://recipes.example.com
+  ```
+
+  The configured host must be the same HTTPS issuer used by the web/API server. Do not use a temporary `trycloudflare.com` tunnel for release builds.
 
 For production, configure `Authentication__Issuer` as the stable HTTPS issuer/API address and provide separate PKCS#12 certificates using `OpenIddict__SigningCertificatePath`, `OpenIddict__SigningCertificatePassword`, `OpenIddict__EncryptionCertificatePath`, and `OpenIddict__EncryptionCertificatePassword`. Use durable protected certificate storage, plan certificate rotation, and keep the certificate files/passwords and provider credentials out of source control. Configure a verified email sender for confirmed accounts. iOS signing and App Store delivery additionally require Apple developer credentials and macOS/Xcode build infrastructure.
 
@@ -104,8 +119,8 @@ The MAUI project targets Android and iOS. Building for a platform requires its n
 * **Windows desktop:** the project can compile for Windows, but MAUI's `WebAuthenticator` does not support Windows sign-in. The interactive authentication journey is for Android and iOS.
 * **Device distribution:** Apple signing and App Store submission require Apple developer credentials. Android release signing also requires a protected signing key; do not put signing keys or passwords in the repository.
 * **Authentication/API:** no extra local secret is needed for Development or automated tests; OpenIddict generates development certificates. Production hosting must provide the HTTPS issuer and separate signing/encryption certificates listed in the [mobile API setup](#mobile-api-and-sign-in-design).
-* **Running on a device:** start the web app at an HTTPS address reachable from the device, with a TLS certificate the device trusts. On the first app launch, enter that server's base address (issuer and API share the same host); the app remembers it. `localhost` on a phone refers to the phone, not the development computer. Do not disable TLS certificate validation or use an untrusted certificate to work around connection errors.
-* **Local server certificates:** the ASP.NET Core Development certificate is intended for local development and is not automatically trusted by Android or iOS devices. For device testing, use a trusted development certificate and a hostname/address reachable from the device, or test against an HTTPS deployment. The app intentionally accepts HTTPS addresses only.
+* **Running on a device:** signed-out recipe use is local and does not need a server. To sync a profile, use a reachable HTTPS server with a certificate the device trusts. `localhost` on a phone refers to the phone, not the development computer. Do not disable TLS certificate validation or use an untrusted certificate to work around connection errors.
+* **Local server certificates:** the ASP.NET Core Development certificate is intended for local development and is not automatically trusted by Android or iOS devices. For device testing, use a trusted development certificate and a hostname/address reachable from the device, or use the documented HTTPS tunnel. The app intentionally accepts HTTPS addresses only.
 * **Sign-in behavior:** the app requests `openid`, `profile`, `email`, `offline_access`, `recipes.read`, and `recipes.write`. Access tokens expire after 10 minutes and are refreshed in the background while the refresh session remains valid. Refresh tokens rotate and expire after 30 days of inactivity. The app's Android intent filter and iOS URL scheme must continue to match the exact registered redirect URI.
 * **Camera:** on first use, grant camera access when prompted. Denying it leaves URL import and manual recipe entry available.
 
@@ -154,17 +169,16 @@ dotnet watch run --project src\RecipeBox.Web\RecipeBox.Web.csproj --launch-profi
 
 The phone cannot reach `localhost` and the app accepts only HTTPS addresses, so expose the local HTTPS server through a tunnel. Use three terminals from the repository root, and keep each one open while testing:
 
-1. **Web app:** `dotnet watch run --project src\RecipeBox.Web\RecipeBox.Web.csproj --launch-profile https`. Wait until it listens on `https://localhost:7211`.
-2. **Tunnel:** install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) (`winget install Cloudflare.cloudflared`), then run `cloudflared tunnel --url https://localhost:7211 --no-tls-verify`. Copy the `https://….trycloudflare.com` address it prints. `--no-tls-verify` only skips the check of your own local development certificate between the tunnel and your PC. A quick tunnel is publicly reachable, so stop it when you are done.
-3. **Issuer:** the server must know its public address. Stop the web app, set `$env:Authentication__Issuer = "https://….trycloudflare.com"` in that terminal, and start the web app again. The address in the app and the issuer must match exactly.
-4. **App:** connect the phone with USB debugging enabled (`adb devices` must show `device`), then run `dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --configuration Debug --framework net10.0-android -t:Run`. Enter the tunnel address when the app asks for the server address, and sign in with an account from the local database.
+1. **Tunnel:** install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) (`winget install Cloudflare.cloudflared`), then run `cloudflared tunnel --url https://localhost:7211 --no-tls-verify`. Copy the `https://….trycloudflare.com` address it prints. `--no-tls-verify` only skips the check of your own local development certificate between the tunnel and your PC. A quick tunnel is publicly reachable, so stop it when you are done.
+2. **Web app:** in a second terminal, set `$env:Authentication__Issuer = "https://….trycloudflare.com"` to the exact tunnel URL, then run `dotnet watch run --project src\RecipeBox.Web\RecipeBox.Web.csproj --launch-profile https`. Wait until it listens on `https://localhost:7211`.
+3. **App:** connect the phone with USB debugging enabled (`adb devices` must show `device`), then run `dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --configuration Debug --framework net10.0-android -t:Run`. Recipes work without signing in. To use photo capture, OCR, URL import, or cross-device sync, tap **Save to Profile**, enter the same tunnel URL, and sign in or create an account in the browser.
 
 When to restart what:
 
 | Change | What to do |
 | --- | --- |
 | Web or API code | Nothing if running with `dotnet watch`; otherwise restart the web app (keep the tunnel). |
-| `cloudflared` restarted | The address changes. Restart the web app with the new `Authentication__Issuer`, and enter the new address in the phone app (clear the saved server address if needed). |
+| `cloudflared` restarted | The address changes. Restart the web app with the new `Authentication__Issuer`, then choose **Change dev server** in the app and enter the new URL. Sign in again to download profile data. |
 | Mobile app code (`src\RecipeBox.Mobile`) | Rebuild and reinstall with the `-t:Run` command above. |
 | New terminal for the web app | Set `Authentication__Issuer` again; environment variables do not persist between terminals. |
 
