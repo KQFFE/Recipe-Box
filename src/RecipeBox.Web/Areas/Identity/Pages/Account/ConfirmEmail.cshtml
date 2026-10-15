@@ -1,0 +1,11 @@
+@page
+@model RecipeBox.Web.Areas.Identity.Pages.Account.ConfirmEmailModel
+@{
+    ViewData["Title"] = "Confirm email";
+}
+
+<h1>@ViewData["Title"]</h1>
+<p role="status">@Model.StatusMessage</p>
+<p>
+    <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Continue to sign in</a>
+</p>

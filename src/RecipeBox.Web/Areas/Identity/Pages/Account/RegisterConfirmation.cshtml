@@ -1,0 +1,20 @@
+@page
+@model RecipeBox.Web.Areas.Identity.Pages.Account.RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Confirm your account";
+}
+
+<h1>@ViewData["Title"]</h1>
+<p>
+    Check your email for a confirmation link. After confirming your account, return here to sign in and continue to the mobile app.
+</p>
+@if (!string.IsNullOrWhiteSpace(Model.ConfirmationLink))
+{
+    <p>
+        Development only: no email service is configured. Use this link to confirm the account:
+        <a href="@Model.ConfirmationLink">Confirm your account</a>
+    </p>
+}
+<p>
+    <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Continue to sign in</a>
+</p>

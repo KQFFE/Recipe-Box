@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
@@ -30,6 +31,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
 
     public TestRecipeImageStorage ImageStorage { get; } = new();
 
+    public TestEmailSender EmailSender { get; } = new();
+
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
         $"recipe-manager-tests-{Guid.NewGuid():N}.db");
@@ -53,6 +56,8 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
             services.AddSingleton<IRecipeUrlImporter>(UrlImporter);
             services.RemoveAll<IRecipeImageStorage>();
             services.AddSingleton<IRecipeImageStorage>(ImageStorage);
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(EmailSender);
 
             services
                 .AddAuthentication(options =>
@@ -117,6 +122,23 @@ public sealed class RecipeAppFactory : WebApplicationFactory<Program>
         {
             File.Delete(databasePath);
         }
+    }
+}
+
+public sealed class TestEmailSender : IEmailSender
+{
+    public string? LastEmail { get; private set; }
+
+    public string? LastSubject { get; private set; }
+
+    public string? LastMessage { get; private set; }
+
+    public Task SendEmailAsync(string email, string subject, string htmlMessage)
+    {
+        LastEmail = email;
+        LastSubject = subject;
+        LastMessage = htmlMessage;
+        return Task.CompletedTask;
     }
 }
 
