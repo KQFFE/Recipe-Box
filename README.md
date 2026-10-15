@@ -140,6 +140,34 @@ In Development, the app applies pending EF Core migrations at startup. Do not re
 
 To stop the app, press `Ctrl+C` in its terminal.
 
+### Restart automatically on code changes
+
+`dotnet run` does not pick up code changes; stop it with `Ctrl+C` and start it again. To rebuild and restart automatically when you save a file, use `dotnet watch` instead:
+
+```powershell
+dotnet watch run --project src\RecipeBox.Web\RecipeBox.Web.csproj --launch-profile https
+```
+
+`dotnet watch` applies small edits in place (hot reload) and restarts the app when a change needs it. Press `Ctrl+R` in its terminal to force a restart. It does not watch the mobile app or the tunnel.
+
+### Test the Android app against your local server
+
+The phone cannot reach `localhost` and the app accepts only HTTPS addresses, so expose the local HTTPS server through a tunnel. Use three terminals from the repository root, and keep each one open while testing:
+
+1. **Web app:** `dotnet watch run --project src\RecipeBox.Web\RecipeBox.Web.csproj --launch-profile https`. Wait until it listens on `https://localhost:7211`.
+2. **Tunnel:** install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) (`winget install Cloudflare.cloudflared`), then run `cloudflared tunnel --url https://localhost:7211 --no-tls-verify`. Copy the `https://….trycloudflare.com` address it prints. `--no-tls-verify` only skips the check of your own local development certificate between the tunnel and your PC. A quick tunnel is publicly reachable, so stop it when you are done.
+3. **Issuer:** the server must know its public address. Stop the web app, set `$env:Authentication__Issuer = "https://….trycloudflare.com"` in that terminal, and start the web app again. The address in the app and the issuer must match exactly.
+4. **App:** connect the phone with USB debugging enabled (`adb devices` must show `device`), then run `dotnet build src\RecipeBox.Mobile\RecipeBox.Mobile.csproj --configuration Debug --framework net10.0-android -t:Run`. Enter the tunnel address when the app asks for the server address, and sign in with an account from the local database.
+
+When to restart what:
+
+| Change | What to do |
+| --- | --- |
+| Web or API code | Nothing if running with `dotnet watch`; otherwise restart the web app (keep the tunnel). |
+| `cloudflared` restarted | The address changes. Restart the web app with the new `Authentication__Issuer`, and enter the new address in the phone app (clear the saved server address if needed). |
+| Mobile app code (`src\RecipeBox.Mobile`) | Rebuild and reinstall with the `-t:Run` command above. |
+| New terminal for the web app | Set `Authentication__Issuer` again; environment variables do not persist between terminals. |
+
 ### Database migrations
 
 Restore the repository's local tools once after cloning:
