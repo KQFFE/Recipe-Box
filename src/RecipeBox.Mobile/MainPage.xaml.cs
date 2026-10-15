@@ -75,7 +75,17 @@ public partial class MainPage : ContentPage
             if (!await apiClient.HasStoredSessionAsync(serverAddress))
             {
                 StatusLabel.Text = "Opening secure sign-in in your browser...";
-                await apiClient.SignInAsync(serverAddress);
+                try
+                {
+                    await apiClient.SignInAsync(serverAddress);
+                }
+                catch (OperationCanceledException)
+                {
+                    StatusLabel.Text = "Sign-in was not completed, so nothing was synced. "
+                        + "If you just created an account, confirm it in the browser, return to this app, and tap Save to Profile again. "
+                        + "Your recipes are still on this device.";
+                    return;
+                }
             }
 
             SetSignedIn(true);
