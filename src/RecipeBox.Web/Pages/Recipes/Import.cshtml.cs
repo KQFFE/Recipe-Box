@@ -28,7 +28,7 @@ public sealed class ImportModel(
 
     public async Task<IActionResult> OnPostImportAsync(CancellationToken cancellationToken)
     {
-        if (!Uri.TryCreate(RecipeUrl, UriKind.Absolute, out var recipeUri))
+        if (!RecipeUrlImporter.TryParseRecipeUri(RecipeUrl, out var recipeUri) || recipeUri is null)
         {
             ModelState.AddModelError(nameof(RecipeUrl), "Enter a valid public HTTP or HTTPS recipe page URL.");
             return Page();

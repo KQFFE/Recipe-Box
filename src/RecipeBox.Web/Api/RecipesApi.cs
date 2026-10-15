@@ -263,7 +263,8 @@ public static class RecipesApi
                 new ValidationContext(request),
                 validationResults,
                 validateAllProperties: true)
-            || !Uri.TryCreate(request.Url, UriKind.Absolute, out var recipeUri))
+            || !RecipeUrlImporter.TryParseRecipeUri(request.Url, out var recipeUri)
+            || recipeUri is null)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {

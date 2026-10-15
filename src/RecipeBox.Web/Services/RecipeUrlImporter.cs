@@ -44,6 +44,24 @@ public sealed class RecipeUrlImporter(HttpClient httpClient) : IRecipeUrlImporte
                 "Recipe Box couldn't find a recipe title with both ingredient and instruction sections in the page. Try a printer-friendly recipe page or use Capture recipe to upload a photo.");
     }
 
+    internal static bool TryParseRecipeUri(string? value, out Uri? recipeUri)
+    {
+        recipeUri = null;
+        var trimmed = value?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return false;
+        }
+
+        // Addresses typed without a scheme, such as "example.com/recipe", are treated as HTTPS.
+        if (!trimmed.Contains("://", StringComparison.Ordinal))
+        {
+            trimmed = "https://" + trimmed;
+        }
+
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out recipeUri);
+    }
+
     internal static void ValidateRecipeUri(Uri recipeUri)
     {
         ArgumentNullException.ThrowIfNull(recipeUri);
