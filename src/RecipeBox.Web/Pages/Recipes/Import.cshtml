@@ -14,7 +14,7 @@
     <form method="post" asp-page-handler="Import" class="border rounded-3 p-3 mb-4">
         <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
         <label asp-for="RecipeUrl" class="form-label"></label>
-        <input asp-for="RecipeUrl" class="form-control" type="url" inputmode="url" autocomplete="url" />
+        <input asp-for="RecipeUrl" class="form-control" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" />
         <span asp-validation-for="RecipeUrl" class="text-danger"></span>
         <div class="form-text">HTTP or HTTPS pages with recipe data or clearly labeled ingredient and instruction sections are supported; maximum page size is 2 MB.</div>
         <button type="submit" class="btn btn-primary mt-3">Find recipe</button>

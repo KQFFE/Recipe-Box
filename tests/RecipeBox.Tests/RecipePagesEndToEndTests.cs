@@ -305,6 +305,29 @@ public sealed class RecipePagesEndToEndTests
     }
 
     [Fact]
+    public async Task ImportPage_AcceptsAddressWithoutScheme()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var importPage = await client.GetAsync("/Recipes/Import");
+        var pageHtml = await importPage.Content.ReadAsStringAsync();
+        var token = ExtractAntiforgeryToken(pageHtml);
+
+        Assert.DoesNotContain("type=\"url\"", pageHtml);
+
+        var importResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string>
+            {
+                ["RecipeUrl"] = "recipes.example.test/tomato-soup"
+            }));
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        Assert.Contains("Review the imported recipe", await importResponse.Content.ReadAsStringAsync());
+        Assert.Equal("https://recipes.example.test/tomato-soup", factory.UrlImporter.LastUri?.AbsoluteUri);
+    }
+
+    [Fact]
     public async Task ImportPage_UsesRecipeLanguageMetadataForReviewAndSavedHeadings()
     {
         using var factory = new RecipeAppFactory();
