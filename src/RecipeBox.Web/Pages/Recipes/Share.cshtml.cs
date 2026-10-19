@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using RecipeBox.Web.Data;
 using RecipeBox.Web.Models;
@@ -10,6 +11,19 @@ namespace RecipeBox.Web.Pages.Recipes;
 [Authorize]
 public sealed class ShareModel(ApplicationDbContext db) : RecipePageModel
 {
+    // Sharing needs an account; guests are sent to sign in and their recipes move with them.
+    public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+    {
+        if (IsGuest)
+        {
+            context.Result = RedirectToPage(
+                "/Account/Login",
+                new { area = "Identity", returnUrl = Request.Path + Request.QueryString });
+        }
+
+        base.OnPageHandlerExecuting(context);
+    }
+
     public Recipe Recipe { get; private set; } = null!;
 
     public bool HasActiveShare { get; private set; }

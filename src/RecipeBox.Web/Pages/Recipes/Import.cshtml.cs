@@ -7,7 +7,6 @@ using RecipeBox.Web.Services;
 
 namespace RecipeBox.Web.Pages.Recipes;
 
-[Authorize]
 public sealed class ImportModel(
     ApplicationDbContext db,
     IRecipeUrlImporter recipeUrlImporter)

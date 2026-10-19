@@ -18,6 +18,7 @@ Accessibility validation is part of feature acceptance: add browser coverage for
 
 - ASP.NET Core Razor Pages web app targeting .NET 10.
 - ASP.NET Core Identity sign-in and account-scoped recipe access.
+- Works without an account: creating, importing, or capturing a recipe while signed out creates a hidden guest profile tied to a 180-day browser cookie. Guest recipes are stored on the server under that guest identity; logging in or registering moves them (including layouts and cover images) to the account and deletes the guest. Sharing, the mobile API, and other-device access need a real account. Stale guest cleanup is not implemented yet, and clearing cookies orphans guest recipes.
 - Create, list, view, edit, and delete recipes.
 - Separate, ordered ingredient and preparation-step lists.
 - Optional description and HTTP/HTTPS image URL or uploaded cover image.
@@ -70,7 +71,7 @@ The API also exposes `GET` and `DELETE /api/v1/recipes/{id}/image` and `POST /ap
 
 Use `openid`, `profile`, `email`, and `offline_access` for sign-in and session renewal, plus `recipes.read` and `recipes.write` scopes for API permissions. `GET` operations require `recipes.read`; create, update, and delete require `recipes.write`. Native clients do not need browser-cookie authentication or CORS for their HTTP requests. Do not log bearer tokens, passwords, refresh tokens, or recipe contents. JSON requests are limited to 64 KiB, photo/image multipart requests to 11 MiB total, and API calls to 60 requests per minute per remote IP address. Use HTTPS in deployed environments.
 
-The native app mirrors the website's look and navigation (Home, My recipes, Capture, Import, Account tabs) and is local-first: recipes and cover images are stored in the app's private data directory, so signed-out users can browse, create, edit, and delete them offline, exactly as when online. Photo capture/OCR and recipe-page import still require a signed-in profile and a network connection; extracted data is shown for review before saving.
+The native app mirrors the website's look and navigation (Home, My recipes, Capture, Import, Account tabs) and is local-first: recipes and cover images are stored in the app's private data directory, so signed-out users can browse, create, edit, and delete them offline, exactly as when online. Photo capture/OCR still requires a signed-in profile and a network connection; recipe-page import now runs on the device without an account; extracted data is shown for review before saving.
 
 ### Local recipes and profile sync
 

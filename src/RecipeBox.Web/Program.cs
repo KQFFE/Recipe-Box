@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -26,7 +27,33 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
         options.SignIn.RequireConfirmedAccount = !isBrowserTesting)
     .AddEntityFrameworkStores<ApplicationDbContext>();
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(options =>
+    options.Conventions.AddFolderApplicationModelConvention(
+        "/Recipes",
+        model => model.Filters.Add(new RecipeBox.Web.Pages.Recipes.GuestSessionFilter())));
+builder.Services.AddScoped<GuestAccountService>();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    var signingIn = options.Events.OnSigningIn;
+    options.Events.OnSigningIn = async context =>
+    {
+        await signingIn(context);
+
+        // Signing in to a real account from a guest session moves the guest's recipes to that account.
+        var guestUser = context.HttpContext.User;
+        var guestId = guestUser.FindFirstValue(ClaimTypes.NameIdentifier);
+        var targetId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (GuestAccountService.IsGuest(guestUser)
+            && guestId is not null
+            && targetId is not null
+            && !GuestAccountService.IsGuestUserName(context.Principal?.Identity?.Name))
+        {
+            await context.HttpContext.RequestServices
+                .GetRequiredService<GuestAccountService>()
+                .MergeAsync(guestId, targetId, context.HttpContext.RequestAborted);
+        }
+    };
+});
 builder.Services.AddControllers();
 
 var issuer = builder.Configuration["Authentication:Issuer"];

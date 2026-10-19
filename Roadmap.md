@@ -23,7 +23,8 @@ Next:
 * [Implemented] Add mobile sign-in and the browse/create/edit/delete recipe journey against the API.
 * [Implemented] Add owner-authorized image endpoints, photo capture/OCR drafts, and recipe URL import drafts through authenticated operations.
 * [Implemented] Add mobile cover-image viewing, replacement, and removal for recipes.
-* [Implemented] Make the mobile app local-first: signed-out users can create, browse, edit, and delete recipes offline without configuring a server. Keep local recipes and images in app-private storage. Photo/OCR capture and URL import require an account and network access for the first version.
+* [Implemented] Web guest mode: signed-out visitors can create, import, and capture recipes; they are kept under a hidden guest profile and merge into the account on login or registration. [ ] Clean up stale guest profiles. [ ] On-device photo OCR for mobile.
+* [Implemented] Make the mobile app local-first: signed-out users can create, browse, edit, and delete recipes offline without configuring a server. Keep local recipes and images in app-private storage. URL import runs on the device; photo/OCR capture still requires an account and network access.
 * [Implemented] Add an Account tab (like the website's Login/Register). Signing in or creating an account promotes local recipes to the account and syncs account recipes and cover images to the device.
 * [Implemented] Sync local edits and profile data with last-edit-wins conflict resolution based on UTC modification timestamps. Remove profile-bound recipes on sign-out while preserving device-only recipes.
 * [ ] Build and test offline and profile-sync journeys on Android, including first-time promotion, reconnection, and edits made on another device.

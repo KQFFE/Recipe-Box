@@ -6,7 +6,6 @@ using RecipeBox.Web.Services;
 
 namespace RecipeBox.Web.Pages.Recipes;
 
-[Authorize]
 [RequestSizeLimit(11 * 1024 * 1024)]
 [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
 public sealed class CreateModel(

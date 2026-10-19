@@ -41,6 +41,14 @@
     </header>
     <div class="container">
         <main id="main-content" tabindex="-1" class="pb-3">
+            @if (RecipeBox.Web.Services.GuestAccountService.IsGuest(User))
+            {
+                <div class="alert alert-info" role="status">
+                    Your recipes are saved in this browser. <a asp-area="Identity" asp-page="/Account/Login">Log in</a>
+                    or <a asp-area="Identity" asp-page="/Account/Register">create an account</a> to keep them on your
+                    account and open them on other devices. Clearing this browser's cookies removes guest recipes.
+                </div>
+            }
             @RenderBody()
         </main>
     </div>
