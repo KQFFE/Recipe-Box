@@ -122,6 +122,11 @@ public sealed class LayoutModel(ApplicationDbContext db) : RecipePageModel
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await db.Recipes
+            .Where(item => item.Id == id && item.OwnerId == CurrentUserId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(item => item.UpdatedAtUtc, DateTime.UtcNow),
+                cancellationToken);
         return RedirectToPage("Details", new { id });
     }
 

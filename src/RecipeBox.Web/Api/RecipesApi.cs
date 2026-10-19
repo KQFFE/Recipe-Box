@@ -45,6 +45,12 @@ public static class RecipesApi
             .RequireAuthorization("RecipeWrite");
         LimitRequestSize(recipes.MapDelete("/{id:int}/image", DeleteImageAsync), MaximumRequestBodySize)
             .RequireAuthorization("RecipeWrite");
+        LimitRequestSize(recipes.MapGet("/{id:int}/share", GetShareAsync), MaximumRequestBodySize)
+            .RequireAuthorization("RecipeRead");
+        LimitRequestSize(recipes.MapPost("/{id:int}/share", CreateShareAsync), MaximumRequestBodySize)
+            .RequireAuthorization("RecipeWrite");
+        LimitRequestSize(recipes.MapDelete("/{id:int}/share", RevokeShareAsync), MaximumRequestBodySize)
+            .RequireAuthorization("RecipeWrite");
         LimitRequestSize(
             recipes.MapPost("/drafts/photo", ExtractPhotoDraftAsync),
             MaximumPhotoRequestBodySize,
@@ -346,12 +352,28 @@ public static class RecipesApi
             .Take(currentPageSize)
             .ToListAsync(cancellationToken);
 
+        var layouts = await LoadLayoutsAsync(
+            db,
+            ownerId,
+            items.Select(recipe => recipe.Id).ToArray(),
+            cancellationToken);
+
         return Results.Ok(new RecipeListResponse(
-            items.Select(RecipeResponse.FromRecipe).ToArray(),
+            items.Select(recipe => RecipeResponse.FromRecipe(recipe, layouts.GetValueOrDefault(recipe.Id))).ToArray(),
             currentPage,
             currentPageSize,
             totalCount));
     }
+
+    private static async Task<Dictionary<int, RecipeLayoutPreference>> LoadLayoutsAsync(
+        ApplicationDbContext db,
+        string ownerId,
+        int[] recipeIds,
+        CancellationToken cancellationToken) =>
+        await db.RecipeLayouts
+            .AsNoTracking()
+            .Where(layout => layout.OwnerId == ownerId && recipeIds.Contains(layout.RecipeId))
+            .ToDictionaryAsync(layout => layout.RecipeId, cancellationToken);
 
     private static async Task<IResult> GetAsync(
         int id,
@@ -360,9 +382,111 @@ public static class RecipesApi
         CancellationToken cancellationToken)
     {
         var recipe = await FindOwnedRecipeAsync(id, principal, db, cancellationToken);
-        return recipe is null
-            ? Results.NotFound()
-            : Results.Ok(RecipeResponse.FromRecipe(recipe));
+        if (recipe is null)
+        {
+            return Results.NotFound();
+        }
+
+        var layout = await db.RecipeLayouts
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item => item.RecipeId == id && item.OwnerId == recipe.OwnerId,
+                cancellationToken);
+        return Results.Ok(RecipeResponse.FromRecipe(recipe, layout));
+    }
+
+    private static async Task<IResult> GetShareAsync(
+        int id,
+        ClaimsPrincipal principal,
+        ApplicationDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var recipe = await FindOwnedRecipeAsync(id, principal, db, cancellationToken);
+        if (recipe is null)
+        {
+            return Results.NotFound();
+        }
+
+        var active = await db.RecipeShares
+            .AsNoTracking()
+            .AnyAsync(
+                share => share.RecipeId == id
+                    && share.OwnerId == recipe.OwnerId
+                    && share.RevokedAtUtc == null,
+                cancellationToken);
+        return Results.Ok(new RecipeShareResponse(active, null));
+    }
+
+    private static async Task<IResult> CreateShareAsync(
+        int id,
+        ClaimsPrincipal principal,
+        ApplicationDbContext db,
+        LinkGenerator linkGenerator,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var recipe = await FindOwnedRecipeAsync(id, principal, db, cancellationToken);
+        if (recipe is null)
+        {
+            return Results.NotFound();
+        }
+
+        var token = RecipeShareToken.Generate();
+        if (!RecipeShareToken.TryGetHash(token, out var tokenHash))
+        {
+            throw new InvalidOperationException("A generated recipe share token was invalid.");
+        }
+
+        var share = await db.RecipeShares.SingleOrDefaultAsync(
+            item => item.RecipeId == id && item.OwnerId == recipe.OwnerId,
+            cancellationToken);
+        if (share is null)
+        {
+            db.RecipeShares.Add(new RecipeShare
+            {
+                RecipeId = id,
+                OwnerId = recipe.OwnerId,
+                TokenHash = tokenHash,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            share.TokenHash = tokenHash;
+            share.CreatedAtUtc = DateTime.UtcNow;
+            share.RevokedAtUtc = null;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var url = linkGenerator.GetUriByPage(httpContext, "/Recipes/Shared", values: new { token })
+            ?? throw new InvalidOperationException("Could not generate the recipe share URL.");
+        httpContext.Response.Headers.CacheControl = "no-store";
+        httpContext.Response.Headers["Referrer-Policy"] = "no-referrer";
+        return Results.Ok(new RecipeShareResponse(true, url));
+    }
+
+    private static async Task<IResult> RevokeShareAsync(
+        int id,
+        ClaimsPrincipal principal,
+        ApplicationDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var recipe = await FindOwnedRecipeAsync(id, principal, db, cancellationToken);
+        if (recipe is null)
+        {
+            return Results.NotFound();
+        }
+
+        var share = await db.RecipeShares.SingleOrDefaultAsync(
+            item => item.RecipeId == id && item.OwnerId == recipe.OwnerId,
+            cancellationToken);
+        if (share is not null && share.RevokedAtUtc is null)
+        {
+            share.RevokedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return Results.NoContent();
     }
 
     private static async Task<IResult> CreateAsync(
@@ -371,6 +495,11 @@ public static class RecipesApi
         ApplicationDbContext db,
         CancellationToken cancellationToken)
     {
+        if (!request.HasValidLayout())
+        {
+            return Results.ValidationProblem(InvalidLayoutErrors());
+        }
+
         if (!TryValidate(request, out var form, out var errors))
         {
             return Results.ValidationProblem(errors);
@@ -391,8 +520,28 @@ public static class RecipesApi
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(cancellationToken);
 
-        return Results.Created($"/api/v1/recipes/{recipe.Id}", RecipeResponse.FromRecipe(recipe));
+        RecipeLayoutPreference? layout = null;
+        if (request.TryGetLayout(out var sectionOrder, out var fullWidthSections))
+        {
+            layout = new RecipeLayoutPreference
+            {
+                RecipeId = recipe.Id,
+                OwnerId = recipe.OwnerId,
+                SectionOrder = sectionOrder,
+                FullWidthSections = fullWidthSections
+            };
+            db.RecipeLayouts.Add(layout);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return Results.Created($"/api/v1/recipes/{recipe.Id}", RecipeResponse.FromRecipe(recipe, layout));
     }
+
+    private static Dictionary<string, string[]> InvalidLayoutErrors() =>
+        new()
+        {
+            ["layout"] = ["Provide sectionOrder and fullWidthSections together, using each known section at most once."]
+        };
 
     private static async Task<IResult> UpdateAsync(
         int id,
@@ -407,6 +556,11 @@ public static class RecipesApi
             return Results.NotFound();
         }
 
+        if (!request.HasValidLayout())
+        {
+            return Results.ValidationProblem(InvalidLayoutErrors());
+        }
+
         if (!TryValidate(request, out var form, out var errors))
         {
             return Results.ValidationProblem(errors);
@@ -418,9 +572,25 @@ public static class RecipesApi
         recipe.Instructions = RecipeContent.NormalizeLines(form.Instructions ?? string.Empty);
         recipe.LanguageCode = RecipeLanguage.NormalizeCode(form.LanguageCode);
         recipe.UpdatedAtUtc = DateTime.UtcNow;
+
+        var layout = await db.RecipeLayouts.SingleOrDefaultAsync(
+            item => item.RecipeId == id && item.OwnerId == recipe.OwnerId,
+            cancellationToken);
+        if (request.TryGetLayout(out var sectionOrder, out var fullWidthSections))
+        {
+            if (layout is null)
+            {
+                layout = new RecipeLayoutPreference { RecipeId = id, OwnerId = recipe.OwnerId };
+                db.RecipeLayouts.Add(layout);
+            }
+
+            layout.SectionOrder = sectionOrder;
+            layout.FullWidthSections = fullWidthSections;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(RecipeResponse.FromRecipe(recipe));
+        return Results.Ok(RecipeResponse.FromRecipe(recipe, layout));
     }
 
     private static async Task<IResult> DeleteAsync(

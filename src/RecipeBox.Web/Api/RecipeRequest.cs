@@ -23,6 +23,50 @@ public sealed class RecipeRequest
     [Required]
     public IReadOnlyList<string>? Instructions { get; init; }
 
+    // Both layout lists must be supplied together; omit them to leave the layout unchanged.
+    public IReadOnlyList<string>? SectionOrder { get; init; }
+
+    public IReadOnlyList<string>? FullWidthSections { get; init; }
+
+    public bool TryGetLayout(out string sectionOrder, out string fullWidthSections)
+    {
+        sectionOrder = fullWidthSections = string.Empty;
+        if (SectionOrder is null || FullWidthSections is null)
+        {
+            return false;
+        }
+
+        sectionOrder = string.Join('|', SectionOrder);
+        fullWidthSections = string.Join('|', FullWidthSections.Order(StringComparer.Ordinal));
+        return true;
+    }
+
+    public bool HasValidLayout()
+    {
+        if (SectionOrder is null && FullWidthSections is null)
+        {
+            return true;
+        }
+
+        if (SectionOrder is null || FullWidthSections is null)
+        {
+            return false;
+        }
+
+        var known = new[]
+        {
+            RecipeLayoutDefinition.Description,
+            RecipeLayoutDefinition.Image,
+            RecipeLayoutDefinition.Ingredients,
+            RecipeLayoutDefinition.Instructions
+        };
+        return SectionOrder.Count <= known.Length
+            && SectionOrder.Distinct(StringComparer.Ordinal).Count() == SectionOrder.Count
+            && SectionOrder.All(key => known.Contains(key, StringComparer.Ordinal))
+            && FullWidthSections.Distinct(StringComparer.Ordinal).Count() == FullWidthSections.Count
+            && FullWidthSections.All(key => SectionOrder.Contains(key, StringComparer.Ordinal));
+    }
+
     public RecipeFormModel ToValidatedForm()
     {
         var ingredients = Ingredients is null ? null : string.Join(Environment.NewLine, Ingredients);

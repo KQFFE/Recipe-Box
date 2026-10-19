@@ -73,6 +73,90 @@ public sealed class RecipesApiTests
     }
 
     [Fact]
+    public async Task RecipesApi_RoundTripsLayoutAndRejectsInvalidLayouts()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/recipes", new
+        {
+            title = "Layout soup",
+            description = "Warm.",
+            languageCode = "en",
+            ingredients = new[] { "Tomatoes" },
+            instructions = new[] { "Cook." },
+            sectionOrder = new[] { "ingredients", "instructions", "description" },
+            fullWidthSections = new[] { "description" }
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions);
+        Assert.Equal(["ingredients", "instructions", "description"], created?.SectionOrder);
+        Assert.Equal(["description"], created?.FullWidthSections);
+
+        var fetched = await (await client.GetAsync($"/api/v1/recipes/{created!.Id}"))
+            .Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions);
+        Assert.Equal(created.SectionOrder, fetched?.SectionOrder);
+
+        foreach (var invalid in new object[]
+        {
+            new { sectionOrder = new[] { "ingredients", "bogus" }, fullWidthSections = Array.Empty<string>() },
+            new { sectionOrder = new[] { "ingredients", "ingredients" }, fullWidthSections = Array.Empty<string>() },
+            new { sectionOrder = new[] { "ingredients" }, fullWidthSections = new[] { "instructions" } },
+            new { sectionOrder = new[] { "ingredients" }, fullWidthSections = (string[]?)null },
+        })
+        {
+            var body = JsonSerializer.SerializeToNode(invalid, JsonOptions)!.AsObject();
+            body["title"] = "Bad layout";
+            body["languageCode"] = "en";
+            body["ingredients"] = JsonSerializer.SerializeToNode(new[] { "Tomatoes" });
+            body["instructions"] = JsonSerializer.SerializeToNode(new[] { "Cook." });
+            var response = await client.PutAsJsonAsync($"/api/v1/recipes/{created.Id}", body);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task RecipesApi_CreatesReadsAndRevokesShareLinksForTheOwnerOnly()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var created = await (await client.PostAsJsonAsync("/api/v1/recipes", new
+        {
+            title = "Shared soup",
+            languageCode = "en",
+            ingredients = new[] { "Tomatoes" },
+            instructions = new[] { "Cook." }
+        })).Content.ReadFromJsonAsync<RecipeResponse>(JsonOptions);
+
+        var inactive = await (await client.GetAsync($"/api/v1/recipes/{created!.Id}/share"))
+            .Content.ReadFromJsonAsync<RecipeShareResponse>(JsonOptions);
+        Assert.False(inactive?.Active);
+
+        var createShare = await client.PostAsync($"/api/v1/recipes/{created.Id}/share", null);
+        Assert.Equal(HttpStatusCode.OK, createShare.StatusCode);
+        var share = await createShare.Content.ReadFromJsonAsync<RecipeShareResponse>(JsonOptions);
+        Assert.True(share?.Active);
+        Assert.Contains("/Recipes/Shared/", share?.Url);
+
+        var sharedPage = await client.GetAsync(new Uri(share!.Url!).PathAndQuery);
+        Assert.Equal(HttpStatusCode.OK, sharedPage.StatusCode);
+
+        var active = await (await client.GetAsync($"/api/v1/recipes/{created.Id}/share"))
+            .Content.ReadFromJsonAsync<RecipeShareResponse>(JsonOptions);
+        Assert.True(active?.Active);
+        Assert.Null(active?.Url);
+
+        using var otherUser = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/recipes/{created.Id}/share");
+        otherUser.Headers.Add("X-Test-UserId", "someone-else");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(otherUser)).StatusCode);
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await client.DeleteAsync($"/api/v1/recipes/{created.Id}/share")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(new Uri(share.Url!).PathAndQuery)).StatusCode);
+    }
+
+    [Fact]
     public async Task RecipesApi_RequiresAuthenticationAndScopes()
     {
         using var factory = new RecipeAppFactory();
