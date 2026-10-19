@@ -50,7 +50,6 @@ public partial class RecipeDetailsPage : ContentPage, IQueryAttributable
         Title = recipe.Title;
         TitleLabel.Text = recipe.Title;
         DescriptionLabel.Text = recipe.Description;
-        DescriptionLabel.IsVisible = !string.IsNullOrWhiteSpace(recipe.Description);
         IngredientsHeading.Text = language.IngredientsLabel;
         InstructionsHeading.Text = language.InstructionsLabel;
         Ingredients = recipe.Ingredients.Select(line => new RecipeLine(string.Empty, line)).ToList();
@@ -64,8 +63,22 @@ public partial class RecipeDetailsPage : ContentPage, IQueryAttributable
         CoverImage.Source = imageBytes is null
             ? null
             : ImageSource.FromStream(() => new MemoryStream(imageBytes));
-        CoverImage.IsVisible = imageBytes is not null;
         SemanticProperties.SetDescription(CoverImage, recipe.Title);
+
+        // The image section follows the file actually on disk, not just the stored path.
+        var layout = RecipeLayout.Resolve(recipe, hasImage: imageBytes is not null);
+        var sections = new Dictionary<string, View>
+        {
+            [RecipeLayout.Description] = DescriptionSection,
+            [RecipeLayout.Image] = ImageSection,
+            [RecipeLayout.Ingredients] = IngredientsSection,
+            [RecipeLayout.Instructions] = InstructionsSection,
+        };
+        SectionsHost.Children.Clear();
+        foreach (var key in layout.Order)
+        {
+            SectionsHost.Children.Add(sections[key]);
+        }
     }
 
     private async void OnBackTapped(object? sender, TappedEventArgs e) =>
@@ -76,6 +89,22 @@ public partial class RecipeDetailsPage : ContentPage, IQueryAttributable
         if (recipeId is not null)
         {
             await Shell.Current.GoToAsync($"{nameof(RecipeFormPage)}?id={Uri.EscapeDataString(recipeId)}");
+        }
+    }
+
+    private async void OnLayoutClicked(object? sender, EventArgs e)
+    {
+        if (recipeId is not null)
+        {
+            await Shell.Current.GoToAsync($"{nameof(LayoutPage)}?id={Uri.EscapeDataString(recipeId)}");
+        }
+    }
+
+    private async void OnShareClicked(object? sender, EventArgs e)
+    {
+        if (recipeId is not null)
+        {
+            await Shell.Current.GoToAsync($"{nameof(SharePage)}?id={Uri.EscapeDataString(recipeId)}");
         }
     }
 

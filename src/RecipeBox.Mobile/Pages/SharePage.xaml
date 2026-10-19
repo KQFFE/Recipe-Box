@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RecipeBox.Mobile.SharePage"
+             Title="Share recipe">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="16">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Share" Style="{StaticResource Eyebrow}" />
+                <Label x:Name="HeadingLabel" Style="{StaticResource PageTitle}" />
+            </VerticalStackLayout>
+            <Label x:Name="IntroLabel"
+                   Style="{StaticResource BodyLabel}"
+                   Text="Anyone with the link can view this recipe. Creating a new link replaces the old one." />
+
+            <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
+                <Label x:Name="StatusLabel"
+                       TextColor="{StaticResource BsWarningText}"
+                       LineBreakMode="WordWrap" />
+            </Border>
+
+            <ActivityIndicator x:Name="Spinner" IsRunning="False" IsVisible="False" />
+
+            <Border x:Name="LinkBorder" Style="{StaticResource Card}" Padding="12" IsVisible="False">
+                <Label x:Name="LinkLabel"
+                       Style="{StaticResource BodyLabel}"
+                       LineBreakMode="CharacterWrap" />
+            </Border>
+
+            <FlexLayout Wrap="Wrap">
+                <Button x:Name="CreateButton"
+                        Text="Create share link"
+                        Margin="0,0,10,10"
+                        Clicked="OnCreateClicked" />
+                <Button x:Name="CopyButton"
+                        Text="Copy link"
+                        Margin="0,0,10,10"
+                        IsVisible="False"
+                        Style="{StaticResource OutlinePrimaryButton}"
+                        Clicked="OnCopyClicked" />
+                <Button x:Name="ShareButton"
+                        Text="Share..."
+                        Margin="0,0,10,10"
+                        IsVisible="False"
+                        Style="{StaticResource OutlinePrimaryButton}"
+                        Clicked="OnShareClicked" />
+                <Button x:Name="RevokeButton"
+                        Text="Stop sharing"
+                        Margin="0,0,10,10"
+                        IsVisible="False"
+                        Style="{StaticResource OutlineDangerButton}"
+                        Clicked="OnRevokeClicked" />
+            </FlexLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

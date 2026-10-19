@@ -42,6 +42,11 @@ public sealed class StoredRecipe
 
     public string? CoverImageContentType { get; set; }
 
+    // Pipe-separated section keys; null means the default layout.
+    public string? LayoutOrder { get; set; }
+
+    public string? LayoutFullWidth { get; set; }
+
     public bool CoverImageChanged { get; set; }
 
     public bool RemoteImageChecked { get; set; }

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RecipeBox.Mobile.LayoutPage"
+             Title="Customize layout">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="16">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Layout" Style="{StaticResource Eyebrow}" />
+                <Label x:Name="HeadingLabel" Style="{StaticResource PageTitle}" />
+            </VerticalStackLayout>
+            <Label Text="Choose the order of the sections. Full width spans both columns on wider screens such as the website. The layout is saved on this device and synced to your profile when you are signed in."
+                   Style="{StaticResource BodyLabel}" />
+
+            <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
+                <Label x:Name="StatusLabel"
+                       TextColor="{StaticResource BsWarningText}"
+                       LineBreakMode="WordWrap" />
+            </Border>
+
+            <VerticalStackLayout x:Name="SectionList" Spacing="8" />
+
+            <FlexLayout Wrap="Wrap">
+                <Button Text="Save layout"
+                        Margin="0,0,10,10"
+                        Clicked="OnSaveClicked" />
+                <Button Text="Reset to default"
+                        Margin="0,0,10,10"
+                        Style="{StaticResource OutlinePrimaryButton}"
+                        Clicked="OnResetClicked" />
+                <Button Text="Cancel"
+                        Margin="0,0,10,10"
+                        Style="{StaticResource OutlinePrimaryButton}"
+                        Clicked="OnCancelClicked" />
+            </FlexLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

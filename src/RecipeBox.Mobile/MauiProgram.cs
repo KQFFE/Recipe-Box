@@ -33,6 +33,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<RecipesPage>();
 		builder.Services.AddTransient<RecipeDetailsPage>();
 		builder.Services.AddTransient<RecipeFormPage>();
+		builder.Services.AddTransient<LayoutPage>();
+		builder.Services.AddTransient<SharePage>();
 		builder.Services.AddTransient<CapturePage>();
 		builder.Services.AddTransient<ImportPage>();
 		builder.Services.AddTransient<AccountPage>();

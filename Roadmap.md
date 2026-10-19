@@ -14,7 +14,7 @@ The shared client framework is .NET MAUI. The app in `src\RecipeBox.Mobile` is a
 Mobile parity with the web app (the native app must look and function the same offline and online):
 
 * [Implemented] Phase 1: tabbed shell, Home, My recipes, recipe details, create/edit/delete, cover images, Capture, Import, and Account (sign in, sync, sign out) with website styling.
-* [ ] Phase 2: customize recipe layout (stored locally, synced to the profile, needs a server/API field), share links (needs an account and network), and visual polish from device testing.
+* [x] Phase 2 (implemented, device test pending): customize recipe layout (stored locally, synced to the profile through optional `sectionOrder`/`fullWidthSections` API fields) and share links (`GET/POST/DELETE /api/v1/recipes/{id}/share`; needs an account and network). Visual polish from device testing remains open.
 
 Next:
 

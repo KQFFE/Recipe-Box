@@ -190,6 +190,7 @@ public sealed class ProfileSyncService(
         localRecipe.LanguageCode = serverRecipe.LanguageCode;
         localRecipe.Ingredients = serverRecipe.Ingredients;
         localRecipe.Instructions = serverRecipe.Instructions;
+        RecipeLayout.ApplyServerLayout(localRecipe, serverRecipe.SectionOrder, serverRecipe.FullWidthSections);
         localRecipe.CreatedAtUtc = serverRecipe.CreatedAtUtc;
         localRecipe.ServerId = serverRecipe.Id;
         localRecipe.UpdatedAtUtc = serverRecipe.UpdatedAtUtc;
@@ -210,6 +211,8 @@ public sealed class ProfileSyncService(
             LanguageCode = recipe.LanguageCode,
             Ingredients = recipe.Ingredients,
             Instructions = recipe.Instructions,
+            LayoutOrder = RecipeLayout.Join(recipe.SectionOrder),
+            LayoutFullWidth = RecipeLayout.Join(recipe.FullWidthSections),
             CreatedAtUtc = recipe.CreatedAtUtc,
             UpdatedAtUtc = recipe.UpdatedAtUtc,
             IsProfileData = true
@@ -221,7 +224,9 @@ public sealed class ProfileSyncService(
             recipe.Description,
             recipe.LanguageCode,
             recipe.Ingredients,
-            recipe.Instructions);
+            recipe.Instructions,
+            RecipeLayout.Split(recipe.LayoutOrder),
+            RecipeLayout.Split(recipe.LayoutFullWidth));
 
     private async Task<IReadOnlyList<RecipeResponse>> GetAllServerRecipesAsync(
         Uri serverAddress,

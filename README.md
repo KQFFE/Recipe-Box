@@ -42,8 +42,7 @@ The app uses the standard ASP.NET Core Identity UI. Account confirmation is requ
 
 The mobile app uses the existing ASP.NET Core Identity accounts and recipe database. It does not create a second account store or ask users to create a separate mobile password.
 
-OpenIddict now provides the authorization-code issuer and local bearer-token validation. The first version of the recipe API is available under `/api/v1/recipes`; it supports paged list, detail, create, update, and delete operations. Unit/HTTP tests exercise token issuance with PKCE, bearer-token validation, required scopes, recipe validation, and owner isolation.
-
+OpenIddict now provides the authorization-code issuer and local bearer-token validation. The first version of the recipe API is available under `/api/v1/recipes`; it supports paged list, detail, create, update, and delete operations. The recipe API also carries each recipe's section order and full-width sections (`sectionOrder`, `fullWidthSections`, both optional) so the app and website share one layout, and exposes `GET/POST/DELETE /api/v1/recipes/{id}/share` to create, check, and revoke the read-only share link. The share URL is returned only when it is created. In the app, open a recipe and use **Customize layout** (works offline, last edit wins on sync) or **Share** (needs sign-in and a connection). On phone-width screens sections always stack in the chosen order; full width matters on wider screens such as the website. Unit/HTTP tests exercise token issuance with PKCE, bearer-token validation, required scopes, recipe validation, layout and share round trips, and owner isolation.
 ### Sign-in
 
 * The web app hosts OpenID Connect/OAuth endpoints with OpenIddict, integrated with ASP.NET Core Identity for its existing login, account-confirmation, and lockout rules. Identity remains the user store; OpenIddict persists authorization/token state through EF Core.

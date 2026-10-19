@@ -258,6 +258,44 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<RecipeShareResponse> GetShareStatusAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default) =>
+        await SendShareRequestAsync(HttpMethod.Get, serverAddress, recipeId, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty share response.");
+
+    public async Task<RecipeShareResponse> CreateShareLinkAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default) =>
+        await SendShareRequestAsync(HttpMethod.Post, serverAddress, recipeId, cancellationToken)
+            ?? throw new JsonException("The recipe server returned an empty share response.");
+
+    public async Task RevokeShareLinkAsync(
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken = default) =>
+        await SendShareRequestAsync(HttpMethod.Delete, serverAddress, recipeId, cancellationToken);
+
+    private async Task<RecipeShareResponse?> SendShareRequestAsync(
+        HttpMethod method,
+        Uri serverAddress,
+        int recipeId,
+        CancellationToken cancellationToken)
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+            method,
+            new Uri(serverAddress, $"api/v1/recipes/{recipeId}/share"),
+            serverAddress,
+            cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+        return response.StatusCode == HttpStatusCode.NoContent
+            ? null
+            : await response.Content.ReadFromJsonAsync<RecipeShareResponse>(JsonOptions, cancellationToken);
+    }
+
     public async Task<RecipeDraftResponse> ExtractPhotoDraftAsync(
         Uri serverAddress,
         byte[] photoBytes,
@@ -545,6 +583,8 @@ public sealed class MobileApiClient(HttpClient httpClient, MobileTokenStore toke
 }
 
 public sealed record RecipeDraftRequest(string Url);
+
+public sealed record RecipeShareResponse(bool Active, string? Url);
 
 public sealed record RecipeDraftResponse(
     string Title,

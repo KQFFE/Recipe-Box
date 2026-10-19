@@ -55,7 +55,9 @@ public sealed record RecipeResponse(
     IReadOnlyList<string> Ingredients,
     IReadOnlyList<string> Instructions,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    IReadOnlyList<string>? SectionOrder = null,
+    IReadOnlyList<string>? FullWidthSections = null);
 
 public sealed record RecipeListResponse(
     IReadOnlyList<RecipeResponse> Items,
@@ -70,4 +72,6 @@ public sealed record RecipeWriteRequest(
     string? Description,
     string LanguageCode,
     IReadOnlyList<string> Ingredients,
-    IReadOnlyList<string> Instructions);
+    IReadOnlyList<string> Instructions,
+    IReadOnlyList<string>? SectionOrder = null,
+    IReadOnlyList<string>? FullWidthSections = null);
