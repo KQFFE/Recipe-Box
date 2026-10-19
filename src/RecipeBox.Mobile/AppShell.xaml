@@ -6,9 +6,12 @@
     xmlns:local="clr-namespace:RecipeBox.Mobile"
     Title="Recipe Box">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <TabBar>
+        <ShellContent Title="Home" ContentTemplate="{DataTemplate local:HomePage}" Route="home" />
+        <ShellContent Title="My recipes" ContentTemplate="{DataTemplate local:RecipesPage}" Route="recipes" />
+        <ShellContent Title="Capture" ContentTemplate="{DataTemplate local:CapturePage}" Route="capture" />
+        <ShellContent Title="Import" ContentTemplate="{DataTemplate local:ImportPage}" Route="import" />
+        <ShellContent Title="Account" ContentTemplate="{DataTemplate local:AccountPage}" Route="account" />
+    </TabBar>
 
 </Shell>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RecipeBox.Mobile.ImportPage"
+             Title="Import recipe">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="16">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="From a website" Style="{StaticResource Eyebrow}" />
+                <Label Text="Import recipe" Style="{StaticResource PageTitle}" />
+            </VerticalStackLayout>
+            <Label Text="Paste the address of a public recipe page and review the result before saving it."
+                   Style="{StaticResource LeadLabel}" />
+
+            <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
+                <Label x:Name="StatusLabel"
+                       TextColor="{StaticResource BsWarningText}"
+                       LineBreakMode="WordWrap" />
+            </Border>
+
+            <Border x:Name="AccountPanel" Style="{StaticResource Panel}" IsVisible="False">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="An account is needed here" Style="{StaticResource CardTitle}" />
+                    <Label Text="Importing a recipe page happens on the server, so it needs an account and an internet connection. Everything else works without one."
+                           Style="{StaticResource MutedLabel}" />
+                    <Button Text="Sign in or create an account" Clicked="OnAccountClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Recipe page address" Style="{StaticResource FieldLabel}" />
+                <Entry x:Name="UrlEntry"
+                       Keyboard="Url"
+                       Placeholder="sugarspunrun.com/best-cheesecake-recipe/"
+                       ClearButtonVisibility="WhileEditing"
+                       ReturnType="Go"
+                       Completed="OnImportClicked" />
+            </VerticalStackLayout>
+            <Button x:Name="ImportButton" Text="Import recipe" Clicked="OnImportClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

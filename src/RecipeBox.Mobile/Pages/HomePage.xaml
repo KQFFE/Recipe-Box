@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RecipeBox.Mobile.HomePage"
+             Title="Recipe Box">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="20">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Your recipes, your way" Style="{StaticResource Eyebrow}" />
+                <Label Text="A home for the dishes you love to make."
+                       Style="{StaticResource PageTitle}"
+                       FontSize="34" />
+                <Label Text="Keep ingredients and preparation steps together in your own private recipe box."
+                       Style="{StaticResource LeadLabel}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="10">
+                <Button Text="Open my recipes" Clicked="OnOpenRecipesClicked" />
+                <Button x:Name="AccountButton"
+                        Text="Create an account"
+                        Style="{StaticResource OutlineSecondaryButton}"
+                        Clicked="OnAccountClicked" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Keep it personal" Style="{StaticResource CardTitle}" />
+                    <Label Text="Your recipes work on this device without an account. Create one only to use them on other devices."
+                           Style="{StaticResource MutedLabel}" />
+                </VerticalStackLayout>
+            </Border>
+            <Border Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Easy to follow" Style="{StaticResource CardTitle}" />
+                    <Label Text="Ingredients and numbered preparation steps stay distinct."
+                           Style="{StaticResource MutedLabel}" />
+                </VerticalStackLayout>
+            </Border>
+            <Border Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Ready to grow" Style="{StaticResource CardTitle}" />
+                    <Label Text="Photo and website importing build on this foundation."
+                           Style="{StaticResource MutedLabel}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

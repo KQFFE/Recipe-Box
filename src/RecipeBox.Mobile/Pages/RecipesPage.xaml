@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:RecipeBox.Mobile"
+             x:Class="RecipeBox.Mobile.RecipesPage"
+             Title="My recipes">
+    <RefreshView x:Name="Refresher" Refreshing="OnRefreshing">
+        <ScrollView>
+            <VerticalStackLayout Padding="20,24" Spacing="16">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Your collection" Style="{StaticResource Eyebrow}" />
+                    <Label Text="My recipes" Style="{StaticResource PageTitle}" />
+                </VerticalStackLayout>
+
+                <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
+                    <Label x:Name="StatusLabel"
+                           TextColor="{StaticResource BsWarningText}"
+                           LineBreakMode="WordWrap"
+                           SemanticProperties.Description="Status message" />
+                </Border>
+
+                <VerticalStackLayout Spacing="10">
+                    <Button Text="Add a recipe" Clicked="OnAddClicked" />
+                    <Button Text="Capture from a photo"
+                            Style="{StaticResource OutlinePrimaryButton}"
+                            Clicked="OnCaptureClicked" />
+                </VerticalStackLayout>
+
+                <Border x:Name="EmptyPanel" Style="{StaticResource Panel}" IsVisible="False">
+                    <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
+                        <Label Text="Your recipe box is empty"
+                               Style="{StaticResource SectionTitle}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="Add a recipe to start building your personal collection."
+                               Style="{StaticResource MutedLabel}"
+                               HorizontalTextAlignment="Center" />
+                        <Button Text="Add your first recipe" Clicked="OnAddClicked" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout x:Name="RecipeList" Spacing="16"
+                                     BindableLayout.ItemsSource="{Binding Recipes}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="local:RecipeCardItem">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout>
+                                    <Image Source="{Binding Image}"
+                                           IsVisible="{Binding HasImage}"
+                                           HeightRequest="180"
+                                           Aspect="AspectFill"
+                                           SemanticProperties.Description="{Binding Title}" />
+                                    <VerticalStackLayout Padding="16" Spacing="8">
+                                        <Label Text="{Binding Title}" Style="{StaticResource CardTitle}" />
+                                        <Label Text="{Binding Description}"
+                                               IsVisible="{Binding HasDescription}"
+                                               Style="{StaticResource MutedLabel}"
+                                               MaxLines="3"
+                                               LineBreakMode="TailTruncation" />
+                                        <Button Text="View recipe"
+                                                Style="{StaticResource OutlinePrimaryButton}"
+                                                HorizontalOptions="Start"
+                                                Clicked="OnViewClicked" />
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

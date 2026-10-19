@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:RecipeBox.Mobile"
+             x:Class="RecipeBox.Mobile.RecipeDetailsPage"
+             Title="Recipe">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="16">
+            <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
+                <Label x:Name="StatusLabel"
+                       TextColor="{StaticResource BsWarningText}"
+                       LineBreakMode="WordWrap" />
+            </Border>
+
+            <Label Text="&#8592; My recipes"
+                   TextColor="{StaticResource Primary}"
+                   SemanticProperties.Description="Back to My recipes">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackTapped" />
+                </Label.GestureRecognizers>
+            </Label>
+            <Label x:Name="TitleLabel" Style="{StaticResource PageTitle}" />
+
+            <HorizontalStackLayout Spacing="10">
+                <Button x:Name="EditButton"
+                        Text="Edit"
+                        Style="{StaticResource OutlinePrimaryButton}"
+                        Clicked="OnEditClicked" />
+                <Button x:Name="DeleteButton"
+                        Text="Delete"
+                        Style="{StaticResource OutlineDangerButton}"
+                        Clicked="OnDeleteClicked" />
+            </HorizontalStackLayout>
+
+            <Label x:Name="DescriptionLabel" Style="{StaticResource LeadLabel}" />
+
+            <Image x:Name="CoverImage"
+                   HeightRequest="220"
+                   Aspect="AspectFill"
+                   IsVisible="False" />
+
+            <Label x:Name="IngredientsHeading" Style="{StaticResource SectionTitle}" />
+            <VerticalStackLayout x:Name="IngredientList"
+                                 BindableLayout.ItemsSource="{Binding Ingredients}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="local:RecipeLine">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding Text}"
+                                   Style="{StaticResource BodyLabel}"
+                                   Padding="0,10" />
+                            <BoxView HeightRequest="1" Color="{StaticResource BsBorder}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label x:Name="InstructionsHeading" Style="{StaticResource SectionTitle}" />
+            <VerticalStackLayout x:Name="InstructionList" Spacing="8"
+                                 BindableLayout.ItemsSource="{Binding Instructions}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="local:RecipeLine">
+                        <Border Style="{StaticResource Card}" Padding="12">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                <Label Text="{Binding Number}"
+                                       FontFamily="OpenSansSemibold"
+                                       TextColor="{StaticResource Primary}" />
+                                <Label Grid.Column="1"
+                                       Text="{Binding Text}"
+                                       Style="{StaticResource BodyLabel}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

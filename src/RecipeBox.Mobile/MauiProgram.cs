@@ -27,6 +27,15 @@ public static class MauiProgram
 			Path.Combine(FileSystem.AppDataDirectory, "recipes.db"),
 			Path.Combine(FileSystem.AppDataDirectory, "recipe-images")));
 		builder.Services.AddSingleton<ProfileSyncService>();
+		builder.Services.AddSingleton<ProfileSession>();
+		builder.Services.AddSingleton<RecipeDraftState>();
+		builder.Services.AddTransient<HomePage>();
+		builder.Services.AddTransient<RecipesPage>();
+		builder.Services.AddTransient<RecipeDetailsPage>();
+		builder.Services.AddTransient<RecipeFormPage>();
+		builder.Services.AddTransient<CapturePage>();
+		builder.Services.AddTransient<ImportPage>();
+		builder.Services.AddTransient<AccountPage>();
 
 #if DEBUG
 		builder.Logging.AddDebug();
