@@ -308,6 +308,28 @@ public sealed class RecipePagesEndToEndTests
     }
 
     [Fact]
+    public async Task CreatePage_OffersImportFromUrl()
+    {
+        using var factory = new RecipeAppFactory();
+        using var client = factory.CreateAppClient();
+        var createPage = await client.GetAsync("/Recipes/Create");
+        var pageHtml = await createPage.Content.ReadAsStringAsync();
+        var token = ExtractAntiforgeryToken(pageHtml);
+
+        Assert.Contains("Paste a link here", pageHtml);
+        Assert.Contains("action=\"/Recipes/Import?handler=Import\"", pageHtml);
+
+        var importResponse = await client.PostAsync(
+            "/Recipes/Import?handler=Import",
+            Form(token, new Dictionary<string, string>
+            {
+                ["RecipeUrl"] = "https://recipes.example.test/tomato-soup"
+            }));
+
+        Assert.Contains("Review the imported recipe", await importResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task ImportPage_AcceptsAddressWithoutScheme()
     {
         using var factory = new RecipeAppFactory();

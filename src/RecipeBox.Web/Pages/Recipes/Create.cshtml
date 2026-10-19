@@ -5,6 +5,13 @@
 }
 
 <h1 class="mb-4">Add a recipe</h1>
+<form method="post" asp-page="Import" asp-page-handler="Import" class="recipe-form border rounded-3 p-3 mb-4">
+    <label for="import-url" class="form-label fw-semibold">Want to import a recipe? Paste a link here</label>
+    <input id="import-url" name="RecipeUrl" class="form-control" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" placeholder="https://example.com/my-favorite-recipe" />
+    <div class="form-text">You can review and edit the recipe before it is saved.</div>
+    <button type="submit" class="btn btn-outline-primary mt-3">Import recipe</button>
+</form>
+
 <form method="post" enctype="multipart/form-data" class="recipe-form">
     <partial name="_RecipeForm" for="Input" />
     <partial name="_RecipeImageUpload" for="Input" />
