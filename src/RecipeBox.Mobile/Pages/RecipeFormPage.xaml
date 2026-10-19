@@ -16,6 +16,26 @@
                        LineBreakMode="WordWrap" />
             </Border>
 
+            <Border x:Name="ImportBorder" Style="{StaticResource Card}" IsVisible="False">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Want to import a recipe? Paste a link here" Style="{StaticResource FieldLabel}" />
+                    <Entry x:Name="ImportUrlEntry"
+                           Keyboard="Url"
+                           Placeholder="https://example.com/my-favorite-recipe"
+                           ClearButtonVisibility="WhileEditing"
+                           ReturnType="Go"
+                           Completed="OnImportClicked"
+                           SemanticProperties.Description="Recipe page address" />
+                    <Label Text="You can review and edit the recipe before it is saved."
+                           Style="{StaticResource MutedLabel}"
+                           FontSize="12" />
+                    <Button x:Name="ImportButton"
+                            Text="Import recipe"
+                            Style="{StaticResource OutlinePrimaryButton}"
+                            Clicked="OnImportClicked" />
+                </VerticalStackLayout>
+            </Border>
+
             <VerticalStackLayout Spacing="4">
                 <Label Text="Title" Style="{StaticResource FieldLabel}" />
                 <Entry x:Name="TitleEntry" MaxLength="160" ReturnType="Next" />

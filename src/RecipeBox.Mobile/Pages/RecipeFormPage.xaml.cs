@@ -7,6 +7,7 @@ public partial class RecipeFormPage : ContentPage, IQueryAttributable
     private readonly LocalRecipeStore recipeStore;
     private readonly ProfileSession session;
     private readonly RecipeDraftState draftState;
+    private readonly RecipePageImporter importer;
     private string? recipeId;
     private bool loaded;
     private bool isBusy;
@@ -16,12 +17,14 @@ public partial class RecipeFormPage : ContentPage, IQueryAttributable
     public RecipeFormPage(
         LocalRecipeStore recipeStore,
         ProfileSession session,
-        RecipeDraftState draftState)
+        RecipeDraftState draftState,
+        RecipePageImporter importer)
     {
         InitializeComponent();
         this.recipeStore = recipeStore;
         this.session = session;
         this.draftState = draftState;
+        this.importer = importer;
         LanguagePicker.ItemsSource = RecipeLanguages.All.Select(language => language.Name).ToList();
         LanguagePicker.SelectedIndex = 0;
     }
@@ -43,6 +46,7 @@ public partial class RecipeFormPage : ContentPage, IQueryAttributable
         }
 
         loaded = true;
+        ImportBorder.IsVisible = recipeId is null;
         try
         {
             if (recipeId is not null)
@@ -90,6 +94,41 @@ public partial class RecipeFormPage : ContentPage, IQueryAttributable
         IngredientsEditor.Text = string.Join(Environment.NewLine, draft.Ingredients);
         InstructionsEditor.Text = string.Join(Environment.NewLine, draft.Instructions);
         ShowStatus("Review and edit the extracted recipe, then save it.");
+    }
+
+    private async void OnImportClicked(object? sender, EventArgs e)
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        ImportButton.IsEnabled = false;
+        StatusBorder.IsVisible = false;
+        try
+        {
+            var recipe = await importer.ImportAsync(ImportUrlEntry.Text ?? string.Empty);
+            ApplyDraft(new RecipeDraftResponse(
+                recipe.Title,
+                recipe.Description,
+                recipe.ImageUrl,
+                recipe.LanguageCode,
+                recipe.IngredientLines,
+                recipe.InstructionLines));
+            ImportUrlEntry.Text = string.Empty;
+            ApplyLanguageLabels();
+            await PageScrollView.ScrollToAsync(0, 0, true);
+        }
+        catch (RecipeImportFailedException exception)
+        {
+            ShowStatus(exception.Message);
+        }
+        finally
+        {
+            isBusy = false;
+            ImportButton.IsEnabled = true;
+        }
     }
 
     private static int IndexOfLanguage(string? code)
