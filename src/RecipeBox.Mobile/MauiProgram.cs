@@ -20,6 +20,14 @@ public static class MauiProgram
 			AllowAutoRedirect = false
 		}));
 		builder.Services.AddSingleton<MobileTokenStore>();
+		builder.Services.AddSingleton(_ => new RecipePageImporter(new HttpClient(new HttpClientHandler
+		{
+			AllowAutoRedirect = true,
+			MaxAutomaticRedirections = 5
+		})
+		{
+			Timeout = TimeSpan.FromSeconds(30)
+		}));
 		builder.Services.AddSingleton<MobileApiClient>();
 		builder.Services.AddSingleton<IRecipeProfileApi>(services =>
 			services.GetRequiredService<MobileApiClient>());

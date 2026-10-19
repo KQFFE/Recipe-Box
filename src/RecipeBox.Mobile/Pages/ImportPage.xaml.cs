@@ -1,46 +1,23 @@
+using RecipeBox.Mobile.Core;
+
 namespace RecipeBox.Mobile;
 
 public partial class ImportPage : ContentPage
 {
-    private readonly MobileApiClient apiClient;
-    private readonly ProfileSession session;
+    private readonly RecipePageImporter importer;
     private readonly RecipeDraftState draftState;
     private bool isBusy;
 
-    public ImportPage(
-        MobileApiClient apiClient,
-        ProfileSession session,
-        RecipeDraftState draftState)
+    public ImportPage(RecipePageImporter importer, RecipeDraftState draftState)
     {
         InitializeComponent();
-        this.apiClient = apiClient;
-        this.session = session;
+        this.importer = importer;
         this.draftState = draftState;
     }
 
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-        try
-        {
-            await session.RestoreAsync();
-        }
-        catch (Exception exception) when (ProfileSession.IsExpectedClientException(exception))
-        {
-            ShowStatus(exception.Message);
-        }
-
-        AccountPanel.IsVisible = !session.IsSignedIn;
-        UrlEntry.IsEnabled = session.IsSignedIn;
-        ImportButton.IsEnabled = session.IsSignedIn;
-    }
-
-    private async void OnAccountClicked(object? sender, EventArgs e) =>
-        await Shell.Current.GoToAsync("//account");
-
     private async void OnImportClicked(object? sender, EventArgs e)
     {
-        if (isBusy || !session.IsSignedIn || session.SavedServerAddress is not Uri serverAddress)
+        if (isBusy)
         {
             return;
         }
@@ -50,21 +27,25 @@ public partial class ImportPage : ContentPage
         StatusBorder.IsVisible = false;
         try
         {
-            draftState.Pending = await apiClient.ImportRecipeDraftAsync(
-                serverAddress,
-                UrlEntry.Text ?? string.Empty);
+            var recipe = await importer.ImportAsync(UrlEntry.Text ?? string.Empty);
+            draftState.Pending = new RecipeDraftResponse(
+                recipe.Title,
+                recipe.Description,
+                recipe.ImageUrl,
+                recipe.LanguageCode,
+                recipe.IngredientLines,
+                recipe.InstructionLines);
             UrlEntry.Text = string.Empty;
             await Shell.Current.GoToAsync(nameof(RecipeFormPage));
         }
-        catch (Exception exception) when (ProfileSession.IsExpectedClientException(exception))
+        catch (RecipeImportFailedException exception)
         {
-            ShowStatus(await session.DescribeFailureAsync(exception));
-            AccountPanel.IsVisible = !session.IsSignedIn;
+            ShowStatus(exception.Message);
         }
         finally
         {
             isBusy = false;
-            ImportButton.IsEnabled = session.IsSignedIn;
+            ImportButton.IsEnabled = true;
         }
     }
 

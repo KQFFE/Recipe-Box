@@ -9,22 +9,13 @@
                 <Label Text="From a website" Style="{StaticResource Eyebrow}" />
                 <Label Text="Import recipe" Style="{StaticResource PageTitle}" />
             </VerticalStackLayout>
-            <Label Text="Paste the address of a public recipe page and review the result before saving it."
+            <Label Text="Paste the address of a public recipe page and review the result before saving it. It is saved on this device; no account is needed."
                    Style="{StaticResource LeadLabel}" />
 
             <Border x:Name="StatusBorder" Style="{StaticResource Alert}" IsVisible="False">
                 <Label x:Name="StatusLabel"
                        TextColor="{StaticResource BsWarningText}"
                        LineBreakMode="WordWrap" />
-            </Border>
-
-            <Border x:Name="AccountPanel" Style="{StaticResource Panel}" IsVisible="False">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="An account is needed here" Style="{StaticResource CardTitle}" />
-                    <Label Text="Importing a recipe page happens on the server, so it needs an account and an internet connection. Everything else works without one."
-                           Style="{StaticResource MutedLabel}" />
-                    <Button Text="Sign in or create an account" Clicked="OnAccountClicked" />
-                </VerticalStackLayout>
             </Border>
 
             <VerticalStackLayout Spacing="4">
